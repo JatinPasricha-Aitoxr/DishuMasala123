@@ -55,6 +55,7 @@ vi.mock("@/lib/db/queries/users", async (importOriginal) => ({
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined, updateTag: () => undefined }));
 
 let dbClient: Client;
+let staffUserId: number;
 let testVariantId: number;
 let realOrderId: number;
 let realOrderNumber: string;
@@ -62,6 +63,18 @@ let realOrderNumber: string;
 beforeAll(async () => {
   dbClient = new Client({ connectionString: process.env.DATABASE_URL });
   await dbClient.connect();
+
+  // Resolve a REAL staff/admin row rather than assuming users.id = 1: actor_user_id and
+  // moderated_by are enforced foreign keys, and the identity sequence never rewinds.
+  const staff = await dbClient.query<{ id: number }>(
+    `select id from users where role in ('staff','admin') order by id limit 1`,
+  );
+  if (!staff.rows[0]) {
+    throw new Error(
+      "No staff/admin user exists in the database to test against. Run `pnpm create-staff-user`.",
+    );
+  }
+  staffUserId = staff.rows[0].id;
 
   const { rows } = await dbClient.query<{ id: number }>(`select id from variants where in_stock = true limit 1`);
   if (!rows[0]) throw new Error("No in-stock variant found in the seeded database to test against.");
@@ -113,7 +126,7 @@ describe("app/admin/orders/actions.ts — direct-call proofs", () => {
   });
 
   it("rejects an illegal jump (confirmed -> delivered) even from a real staff session, via the real action", async () => {
-    mockAuth.mockResolvedValue({ user: { id: "1", role: "staff" } });
+    mockAuth.mockResolvedValue({ user: { id: String(staffUserId), role: "staff" } });
     const { transitionOrderStatusAction } = await import("@/app/admin/orders/actions");
 
     const result = await transitionOrderStatusAction({ orderId: realOrderId, to: "delivered" });
@@ -123,7 +136,7 @@ describe("app/admin/orders/actions.ts — direct-call proofs", () => {
   });
 
   it("a legal transition by a staff session succeeds and writes a real audit_log row with a real diff", async () => {
-    mockAuth.mockResolvedValue({ user: { id: "1", role: "staff" } });
+    mockAuth.mockResolvedValue({ user: { id: String(staffUserId), role: "staff" } });
     const { transitionOrderStatusAction } = await import("@/app/admin/orders/actions");
 
     const result = await transitionOrderStatusAction({ orderId: realOrderId, to: "packed" });
@@ -138,7 +151,7 @@ describe("app/admin/orders/actions.ts — direct-call proofs", () => {
     );
     expect(audit.rows.length).toBe(1);
     const row = audit.rows[0];
-    expect(row.actor_user_id).toBe(1);
+    expect(row.actor_user_id).toBe(staffUserId);
     expect(row.diff).toMatchObject({ orderNumber: realOrderNumber, status: { from: "confirmed", to: "packed" } });
 
     console.log("[Phase 7 acceptance proof] real audit_log row:", JSON.stringify(row, null, 2));

@@ -46,12 +46,25 @@ vi.mock("@/lib/db/queries/users", async (importOriginal) => ({
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined, updateTag: () => undefined }));
 
 let dbClient: Client;
+let staffUserId: number;
 let collectionId: number;
 const createdProductIds: number[] = [];
 
 beforeAll(async () => {
   dbClient = new Client({ connectionString: process.env.DATABASE_URL });
   await dbClient.connect();
+
+  // Resolve a REAL staff/admin row rather than assuming users.id = 1: actor_user_id and
+  // moderated_by are enforced foreign keys, and the identity sequence never rewinds.
+  const staff = await dbClient.query<{ id: number }>(
+    `select id from users where role in ('staff','admin') order by id limit 1`,
+  );
+  if (!staff.rows[0]) {
+    throw new Error(
+      "No staff/admin user exists in the database to test against. Run `pnpm create-staff-user`.",
+    );
+  }
+  staffUserId = staff.rows[0].id;
   const { rows } = await dbClient.query<{ id: number }>(`select id from collections order by priority limit 1`);
   if (!rows[0]) throw new Error("No seeded collection found to test against.");
   collectionId = rows[0].id;
@@ -67,7 +80,7 @@ afterAll(async () => {
 });
 
 function asStaff() {
-  mockAuth.mockResolvedValue({ user: { id: "1", role: "staff" } });
+  mockAuth.mockResolvedValue({ user: { id: String(staffUserId), role: "staff" } });
 }
 
 describe("product admin actions — rupee to paise round-trip", () => {

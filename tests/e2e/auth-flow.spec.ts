@@ -10,11 +10,7 @@ import { test, expect } from "@playwright/test";
  * (the DB writes, Supabase's password hashing, the session cookie, the redirect gates) is the
  * real app.
  */
-async function tokenHashes(request: import("@playwright/test").APIRequestContext, email: string) {
-  const res = await request.post("/api/testing/auth-tokens", { data: { email } });
-  expect(res.ok()).toBe(true);
-  return (await res.json()) as { verifyTokenHash: string | null; resetTokenHash: string | null };
-}
+import { authTokenHash, walkConfirmLink } from "./_helpers/auth";
 
 test("register → verify → login → logout → reset → session refresh", async ({ page, request }) => {
   const suffix = Date.now();
@@ -32,12 +28,8 @@ test("register → verify → login → logout → reset → session refresh", a
   await expect(page.getByText(/check your email for a verification link/i)).toBeVisible();
 
   // ---- Verify (via the test-only token mint, standing in for the email link) -------------
-  const { verifyTokenHash } = await tokenHashes(request, email);
-  expect(verifyTokenHash).toBeTruthy();
-
-  await page.goto(
-    `/auth/confirm?token_hash=${encodeURIComponent(verifyTokenHash!)}&type=signup&next=${encodeURIComponent("/verify-email")}`,
-  );
+  const verifyTokenHash = await authTokenHash(request, email, "magiclink");
+  await walkConfirmLink(page, verifyTokenHash, "magiclink", "/verify-email");
   await expect(page.getByRole("heading", { name: /email verified/i })).toBeVisible();
 
   // Confirming signs the visitor in; sign out so the login step below is a genuine login.
@@ -68,12 +60,8 @@ test("register → verify → login → logout → reset → session refresh", a
   // ---- Password reset --------------------------------------------------------------------------
   // Minted fresh here rather than reused from the verify step: Supabase's recovery tokens are
   // single-use and issuing a new one supersedes any earlier one.
-  const { resetTokenHash } = await tokenHashes(request, email);
-  expect(resetTokenHash).toBeTruthy();
-
-  await page.goto(
-    `/auth/confirm?token_hash=${encodeURIComponent(resetTokenHash!)}&type=recovery&next=${encodeURIComponent("/reset-password?mode=set")}`,
-  );
+  const resetTokenHash = await authTokenHash(request, email, "recovery");
+  await walkConfirmLink(page, resetTokenHash, "recovery", "/reset-password?mode=set");
   await page.getByLabel("New password", { exact: true }).fill(newPassword);
   await page.getByLabel("Confirm new password").fill(newPassword);
   await page.getByRole("button", { name: "Reset password" }).click();

@@ -48,12 +48,25 @@ vi.mock("next/cache", async (importOriginal) => {
 });
 
 let dbClient: Client;
+let staffUserId: number;
 let productId: number;
 let reviewId: number;
 
 beforeAll(async () => {
   dbClient = new Client({ connectionString: process.env.DATABASE_URL });
   await dbClient.connect();
+
+  // Resolve a REAL staff/admin row rather than assuming users.id = 1: actor_user_id and
+  // moderated_by are enforced foreign keys, and the identity sequence never rewinds.
+  const staff = await dbClient.query<{ id: number }>(
+    `select id from users where role in ('staff','admin') order by id limit 1`,
+  );
+  if (!staff.rows[0]) {
+    throw new Error(
+      "No staff/admin user exists in the database to test against. Run `pnpm create-staff-user`.",
+    );
+  }
+  staffUserId = staff.rows[0].id;
   const { rows } = await dbClient.query<{ id: number }>(`select id from products limit 1`);
   if (!rows[0]) throw new Error("No seeded product found to test against.");
   productId = rows[0].id;
@@ -73,7 +86,7 @@ afterAll(async () => {
 
 describe("review approval makes it appear live on the storefront", () => {
   it("is absent from getApprovedReviews/getReviewSummary while pending, present after approveReviewAction", async () => {
-    mockAuth.mockResolvedValue({ user: { id: "1", role: "staff" } });
+    mockAuth.mockResolvedValue({ user: { id: String(staffUserId), role: "staff" } });
 
     async function approvedCountFor(id: number): Promise<number> {
       // The exact predicate lib/db/queries/reviews.ts's getApprovedReviews/getReviewSummary use.
@@ -95,7 +108,7 @@ describe("review approval makes it appear live on the storefront", () => {
       [reviewId],
     );
     expect(rows[0].status).toBe("approved");
-    expect(rows[0].moderated_by).toBe(1);
+    expect(rows[0].moderated_by).toBe(staffUserId);
 
     expect(await approvedCountFor(reviewId)).toBe(1);
   });
