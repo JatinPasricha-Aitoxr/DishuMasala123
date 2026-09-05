@@ -93,16 +93,29 @@ describe("lib/auth/session.ts — the redundant server-side gate", () => {
 /**
  * Same proof at the middleware layer — this is literally the function Next.js runs as the FIRST
  * gate; it's tested directly here (not via an HTTP round trip) to pin its exact behaviour per
- * role/path independent of the redundant checks above. Supabase's client is mocked so the test
- * controls the `user_role` claim the access-token hook (migration 0008) would have stamped.
+ * role/path independent of the redundant checks above.
+ *
+ * Middleware now reads the role from Postgres (via `fetchOwnUserRow`, constrained to the caller's
+ * own row by the `users_can_read_own_row` RLS policy) rather than from a JWT claim, so both the
+ * identity source (`getClaims`) and the role source are mocked here.
  */
 const mockGetClaims = vi.fn();
+const mockFetchOwnUserRow = vi.fn();
+
 vi.mock("@supabase/ssr", () => ({
   createServerClient: () => ({ auth: { getClaims: () => mockGetClaims() } }),
 }));
+vi.mock("@/lib/db/session-role", () => ({
+  fetchOwnUserRow: (...args: unknown[]) => mockFetchOwnUserRow(...args),
+}));
 
-async function runMiddleware(path: string, claims: Record<string, unknown> | null) {
-  mockGetClaims.mockResolvedValue({ data: claims ? { claims } : null });
+async function runMiddleware(
+  path: string,
+  session: { sub: string } | null,
+  appUser: { id: number; role: "customer" | "staff" | "admin" } | null = null,
+) {
+  mockGetClaims.mockResolvedValue({ data: session ? { claims: session } : null });
+  mockFetchOwnUserRow.mockResolvedValue(appUser);
   const { NextRequest } = await import("next/server");
   const middleware = (await import("@/middleware")).default;
   return middleware(new NextRequest(new URL(`http://localhost${path}`)));
@@ -111,6 +124,7 @@ async function runMiddleware(path: string, claims: Record<string, unknown> | nul
 describe("middleware.ts — the first gate", () => {
   beforeEach(() => {
     mockGetClaims.mockReset();
+    mockFetchOwnUserRow.mockReset();
     process.env.SUPABASE_URL ||= "http://127.0.0.1:54421";
     process.env.SUPABASE_PUBLISHABLE_KEY ||= "test-publishable-key";
   });
@@ -122,28 +136,33 @@ describe("middleware.ts — the first gate", () => {
   });
 
   it("redirects /admin to /login for a customer-role session", async () => {
-    const res = await runMiddleware("/admin/orders", { sub: "auth-uuid-1", user_role: "customer" });
+    const res = await runMiddleware("/admin/orders", { sub: "auth-uuid-1" }, { id: 1, role: "customer" });
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/login");
   });
 
   it("allows /admin for a staff-role session", async () => {
-    const res = await runMiddleware("/admin", { sub: "auth-uuid-1", user_role: "staff" });
+    const res = await runMiddleware("/admin", { sub: "auth-uuid-1" }, { id: 1, role: "staff" });
     expect(res.status).toBe(200);
   });
 
   it("allows /admin for an admin-role session", async () => {
-    const res = await runMiddleware("/admin", { sub: "auth-uuid-1", user_role: "admin" });
+    const res = await runMiddleware("/admin", { sub: "auth-uuid-1" }, { id: 1, role: "admin" });
     expect(res.status).toBe(200);
   });
 
-  it("treats a session with no user_role claim as a customer, never as staff", async () => {
-    const res = await runMiddleware("/admin", { sub: "auth-uuid-1" });
+  it("REJECTS /admin when the signed-in identity has no public.users row (fails closed)", async () => {
+    const res = await runMiddleware("/admin", { sub: "auth-uuid-orphan" }, null);
     expect(res.status).toBe(307);
   });
 
-  it("blocks /account for a signed-out visitor but allows any signed-in role", async () => {
+  it("does not query the database at all for /account — being signed in is enough", async () => {
+    const res = await runMiddleware("/account", { sub: "auth-uuid-1" }, { id: 1, role: "customer" });
+    expect(res.status).toBe(200);
+    expect(mockFetchOwnUserRow).not.toHaveBeenCalled();
+  });
+
+  it("blocks /account for a signed-out visitor", async () => {
     expect((await runMiddleware("/account", null)).status).toBe(307);
-    expect((await runMiddleware("/account", { sub: "auth-uuid-1", user_role: "customer" })).status).toBe(200);
   });
 });

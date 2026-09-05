@@ -20,10 +20,9 @@ export interface SessionUser {
  *   - `getUser()`, never `getSession()`. `getSession()` returns whatever the cookie claims,
  *     unverified; `getUser()` revalidates the token against the Auth server. Authorization must
  *     never be decided from an unverified cookie.
- *   - the role comes from `public.users`, not from the JWT's `user_role` claim. The claim exists
- *     for middleware, which cannot reach the database; here the database is reachable and is the
- *     authority, so a role changed in the admin panel takes effect immediately instead of at the
- *     next token refresh.
+ *   - the role comes from `public.users`, which is the only authority for it. `middleware.ts`
+ *     reads the same row over PostgREST for its own first-gate check, so a role changed in the
+ *     admin panel takes effect immediately at both gates — there is no JWT claim to go stale.
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
   const supabase = await createSupabaseServerClient();
@@ -42,29 +41,22 @@ export async function getSessionUser(): Promise<SessionUser | null> {
  * `getSessionUser()` above costs a network round-trip to the Auth server plus a `public.users`
  * query — correct for an authorization decision, but far too expensive to pay on every single
  * page render, and it is paid again on every `revalidatePath()` a server action triggers. This
- * reads the same identity out of the already-present JWT instead: `getClaims()` verifies the
- * token's signature locally (caching the JWKS), so it makes no per-render round-trip, and the
- * `user_role` / `app_user_id` claims are stamped by the access-token hook (migration 0008).
+ * reads the identity out of the already-present JWT instead: `getClaims()` verifies the token's
+ * signature locally (caching the JWKS), so it makes no per-render round-trip.
  *
- * NEVER use this to authorize anything. A claim can be up to one token-refresh stale, so a
- * demoted admin would still present `user_role: "admin"` here. It decides what the header shows
- * and when the cart/wishlist merge fires — nothing more. Every actual gate calls `requireUser()`
- * or `requireStaffOrAdmin()`, which re-read the authoritative role from the database.
+ * It deliberately returns only the Supabase user id and no role. Nothing on the client needs the
+ * role — the header and the wishlist toggle need "is anyone signed in", and AccountSync needs a
+ * stable per-account key for its merge guard — so there is nothing here worth a database query,
+ * and no dependence on a custom JWT claim.
+ *
+ * NEVER use this to authorize anything. Every actual gate calls `requireUser()` or
+ * `requireStaffOrAdmin()`, which re-read the authoritative role from the database.
  */
-export async function getDisplaySessionUser(): Promise<SessionUser | null> {
+export async function getDisplaySessionUser(): Promise<{ id: string } | null> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims;
-  if (!claims?.sub) return null;
-
-  const appUserId = typeof claims.app_user_id === "number" ? claims.app_user_id : null;
-  if (appUserId === null) return null;
-
-  const role = claims.user_role;
-  return {
-    id: appUserId,
-    role: role === "staff" || role === "admin" ? role : "customer",
-  };
+  const sub = data?.claims?.sub;
+  return typeof sub === "string" && sub.length > 0 ? { id: sub } : null;
 }
 
 export type RequireResult = { ok: true; user: SessionUser } | { ok: false; error: "unauthenticated" | "forbidden" };

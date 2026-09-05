@@ -64,6 +64,20 @@
       "when": 1788518579550,
       "tag": "0008_supabase_auth_wiring",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788615603262,
+      "tag": "0009_auth_hook_rls_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788616424167,
+      "tag": "0010_user_self_read_policy",
+      "breakpoints": true
     }
   ]
 }

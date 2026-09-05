@@ -13,12 +13,14 @@ import { createContext, useContext, type ReactNode } from "react";
  * time the tree renders.
  *
  * This is display state only: it decides what the header shows and when the cart/wishlist merge
- * fires. It is never an authorization decision — those all happen server-side in
- * lib/auth/session.ts.
+ * fires. It carries no role, because nothing on the client needs one. It is never an
+ * authorization decision — those all happen server-side in lib/auth/session.ts, and at the first
+ * gate in middleware.ts.
  */
 export interface ClientSessionUser {
+  /** The Supabase auth user id. Used only as a stable per-account key (AccountSync's merge
+   * guard) — never as an authorization input. */
   id: string;
-  role: "customer" | "staff" | "admin";
 }
 
 export interface ClientSession {

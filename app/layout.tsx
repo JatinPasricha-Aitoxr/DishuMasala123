@@ -44,8 +44,8 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Resolved server-side so the header, the wishlist toggle and the cart/wishlist merge all see
   // the same session without any Supabase client running in the browser. Deliberately the cheap
-  // claims-only read: this runs on every render (including every revalidatePath a server action
-  // triggers) and is display state, never an authorization decision — see its doc comment.
+  // claims-only read — it runs on every render, including every revalidatePath a server action
+  // triggers — and carries no role, because this is display state, never authorization.
   const sessionUser = await getDisplaySessionUser();
 
   return (
@@ -57,7 +57,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
-        <SessionProvider user={sessionUser ? { id: String(sessionUser.id), role: sessionUser.role } : null}>
+        <SessionProvider user={sessionUser}>
           <ToastProvider>
             <AccountSync />
             <Header />

@@ -261,11 +261,14 @@ max_frequency = "5s"
 # enabled = true
 # uri = "pg-functions://postgres/auth/before-user-created-hook"
 
-# Stamps `user_role` (and `app_user_id`) into every issued JWT from public.users, so middleware.ts
-# can gate /admin/* without a database round-trip. Defined in migration 0008_supabase_auth_wiring.
-[auth.hook.custom_access_token]
-enabled = true
-uri = "pg-functions://postgres/public/custom_access_token_hook"
+# Left DISABLED deliberately. middleware.ts reads the role straight from public.users over
+# PostgREST (lib/db/session-role.ts, constrained by the `users_can_read_own_row` policy in
+# migration 0010) rather than from a JWT claim, so no hook is required in any environment. The
+# `custom_access_token_hook` function from migration 0008 still exists but is unused — see
+# CLAUDE.md §12 for why the claim-based approach was abandoned.
+# [auth.hook.custom_access_token]
+# enabled = true
+# uri = "pg-functions://postgres/public/custom_access_token_hook"
 
 # Configure one of the supported SMS providers: `twilio`, `twilio_verify`, `messagebird`, `textlocal`, `vonage`.
 [auth.sms.twilio]

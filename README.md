@@ -50,16 +50,15 @@ session is an httpOnly cookie), so it never needs to be inlined — see `lib/sup
 Every phase's acceptance check greps the built `.next/static` output for secret values and variable
 names to confirm none leaked into the client bundle.
 
-Two things live in the Supabase **dashboard**, not in `.env`, and a new project will not work
-without them:
+One thing lives in the Supabase **dashboard** rather than in `.env`:
 
-1. **Auth → Hooks → "Customize Access Token (JWT) Claims"** — enable it and point it at
-   `public.custom_access_token_hook`. Migration `0008_supabase_auth_wiring` creates the function
-   and grants it to `supabase_auth_admin`, but the hook itself must be switched on for the project.
-   Without it the `user_role` claim never reaches the JWT, `middleware.ts` treats every visitor as
-   a customer, and staff are locked out of `/admin`. `supabase/config.toml` only enables it locally.
-2. **Auth → URL Configuration** — set the Site URL and add `<site>/auth/confirm` to the allowed
-   redirect URLs, or email-confirmation and password-reset links will refuse to redirect.
+- **Auth → URL Configuration** — set the Site URL and add `<site>/auth/confirm` to the allowed
+  redirect URLs, or email-confirmation and password-reset links will refuse to redirect.
+
+No auth hook is required. `middleware.ts` reads the role from `public.users` over PostgREST
+(`lib/db/session-role.ts`, constrained to the caller's own row by RLS), so `/admin` works with no
+dashboard configuration at all — see CLAUDE.md §12 for why the earlier JWT-claim approach was
+abandoned.
 
 ## Local Supabase stack
 
@@ -114,6 +113,7 @@ Two things to know about the E2E suite, both pre-existing:
 - **Supabase owns identity; this app owns the user.** Credentials live in `auth.users` (there is no
   password column in `public.users`). The app's `public.users` row keeps the integer primary key
   that orders, addresses, reviews and wishlist rows reference, linked by `auth_user_id`, and is
-  created by the `on_auth_user_created` trigger. Role lives on that row, and reaches `middleware.ts`
-  as a JWT claim via the `custom_access_token_hook` — but every server action re-reads it from the
-  database, so middleware is the first gate and never the only one.
+  created by the `on_auth_user_created` trigger. Role lives on that row and is read from the
+  database at both gates — `middleware.ts` over PostgREST (constrained to the caller's own row by
+  RLS), and every server action again via `lib/auth/session.ts`. Middleware is the first gate and
+  never the only one, and there is no JWT claim that can go stale.

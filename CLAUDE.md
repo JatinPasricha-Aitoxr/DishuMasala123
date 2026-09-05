@@ -445,6 +445,33 @@ canonicals, per-page OG images, and JSON-LD for Organization, BreadcrumbList, Pr
 
 ---
 
+
+**Follow-up (2026-09-05): the access-token hook was abandoned.** The claim-based design failed in
+the worst possible way on a real project. A Supabase access-token hook has to be enabled per
+project in the dashboard, and the hook function runs as `supabase_auth_admin` — which is not the
+table owner, so the moment RLS is enabled on `public.users` (which Supabase's own dashboard
+prompts you to do) its `SELECT` returns zero rows. Either failure produces the same outcome: the
+`user_role` claim is absent or defaults to `customer`, `middleware.ts` locks every staff account
+out of `/admin`, and **nothing is logged anywhere**. It fails closed, which is safe, but silently,
+which is worse than loudly.
+
+`middleware.ts` now reads the role from `public.users` directly, over PostgREST, using the
+caller's own session (`lib/db/session-role.ts`). Migration 0010's `users_can_read_own_row` policy
+is what makes that safe — `SELECT` only, `authenticated` only, `USING (auth_user_id = auth.uid())`
+— so a signed-in customer can read their own role and nobody else's. Costs one round-trip, on the
+`/account/*` and `/admin/*` prefixes only.
+
+What this bought: no dashboard step in the deploy checklist, the role is authoritative at the first
+gate instead of up to one token-refresh stale, and the failure mode is now "no row → rejected"
+rather than "claim missing → silently a customer". `getDisplaySessionUser()` correspondingly stopped
+needing any custom claim and now returns only the Supabase user id, because nothing on the client
+ever needed the role.
+
+Migration 0008's `custom_access_token_hook` function is deliberately left in place rather than
+dropped: dropping it while a dashboard hook still points at it would make token issuance fail
+outright. It is inert. Removing it is a separate manual step once the hook is switched off in the
+dashboard.
+
 ## 12. Working style for Claude Code
 
 **Logged migration (2026-09-04, client decision): Neon + Auth.js + Cloudflare R2 → Supabase.**
@@ -470,10 +497,13 @@ this actually changed, so nobody has to rediscover it:
   `audit_log` depends on it) and gains `auth_user_id` → `auth.users.id`; `password_hash` is dropped
   outright. Migration 0008 adds the `on_auth_user_created` trigger and the
   `custom_access_token_hook` that stamps `user_role` into the JWT.
-- **Two gates, unchanged in principle.** `middleware.ts` reads `user_role` from the JWT claim
-  because it cannot import `lib/db`; `lib/auth/session.ts` re-reads the role from `public.users`,
-  so a role changed in the admin panel takes effect immediately rather than at the next token
-  refresh. A test pins that a stale admin claim cannot elevate.
+- **Two gates, both reading Postgres.** `middleware.ts` cannot import `lib/db` (it is
+  "server-only"), so the role initially travelled in a `user_role` JWT claim stamped by a Supabase
+  access-token hook. **That was abandoned on 2026-09-05** — see the follow-up entry below.
+  `middleware.ts` now reads the role over PostgREST as the caller (`lib/db/session-role.ts`,
+  constrained to the caller's own row by the `users_can_read_own_row` policy in migration 0010),
+  and `lib/auth/session.ts` re-reads it with Drizzle for every server action. Middleware is the
+  first gate, never the only one, and no claim can go stale.
 - **What was genuinely lost.** The hand-built timing-equalisation burns are gone — they hid a fast
   "no such user" DB miss behind a slow Argon2 verify, and Supabase answers over the network on its
   own timing. The no-enumeration discipline and the per-email rate limiting in `lib/rate-limit.ts`
