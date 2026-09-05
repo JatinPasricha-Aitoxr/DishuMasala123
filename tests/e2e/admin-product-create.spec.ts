@@ -84,6 +84,7 @@ test("staff creates a two-variant, three-image product from the admin UI alone a
   await page.waitForTimeout(500); // let the alt-text save (onBlur server action) land
 
   // ---- Publish ---------------------------------------------------------------------------------
+  const adminProductUrl = page.url();
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText(/published — it's live on the storefront now/i)).toBeVisible({ timeout: 15_000 });
 
@@ -105,4 +106,17 @@ test("staff creates a two-variant, three-image product from the admin UI alone a
   const index = uniqueHrefs.findIndex((href) => href?.includes(slug));
   expect(index).toBeGreaterThanOrEqual(0);
   expect(index).toBeLessThan(Math.ceil(uniqueHrefs.length / 2));
+
+  // ---- Clean up after ourselves ----------------------------------------------------------------
+  // Everything this spec set out to prove is proven by now. Leaving the product published would
+  // make it a permanent 21st entry in the catalogue, which breaks shop-filter.spec.ts's "exactly
+  // 20 products" assertions on the next run — the test suite would then only pass on a freshly
+  // seeded database. Unpublishing through the real admin control keeps the catalogue as the seed
+  // left it, and exercises the unpublish path into the bargain.
+  await page.goto(adminProductUrl);
+  await page.getByRole("button", { name: "Unpublish" }).click();
+  await expect(page.getByText(/moved back to draft/i).first()).toBeVisible({ timeout: 15_000 });
+
+  await page.goto("/shop");
+  await expect(page.locator(`a[href="/product/${slug}"]`)).toHaveCount(0);
 });

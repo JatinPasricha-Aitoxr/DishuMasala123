@@ -67,6 +67,10 @@ test("admin is keyboard-operable: sidebar nav, DataTable rows, order detail dial
   const searchInput = page.locator("#q");
   await searchInput.focus();
   await page.keyboard.type(orderNumber);
+  // Assert the keystrokes actually landed before submitting. Typing can begin before the client
+  // component has hydrated, in which case Enter submits an empty form and the URL never gains
+  // ?q= — which is exactly how this step failed intermittently.
+  await expect(searchInput).toHaveValue(orderNumber);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`q=${orderNumber}`));
 

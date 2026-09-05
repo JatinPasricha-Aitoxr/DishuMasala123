@@ -46,11 +46,30 @@ export async function processImage(input: Buffer): Promise<ProcessedImage> {
         format === "avif"
           ? await pipeline.avif({ quality: 60 }).toBuffer()
           : await pipeline.webp({ quality: 75 }).toBuffer();
-      const derivedMeta = await sharp(buffer).metadata();
-      const height =
-        derivedMeta.height ?? Math.round((originalHeight / originalWidth) * targetWidth);
 
-      derivatives.push({ width: derivedMeta.width ?? targetWidth, height, format, buffer });
+      // A zero-length buffer means the encoder failed without throwing. Never upload that —
+      // a silently-corrupt derivative is far worse than a failed upload.
+      if (!buffer?.byteLength) {
+        throw new Error(`processImage: the ${format} encoder produced an empty buffer at width ${targetWidth}`);
+      }
+
+      // Derive the dimensions arithmetically rather than by decoding our own output. `resize`
+      // preserves aspect ratio and never enlarges, so this is exact for the width and correct to
+      // the rounding for the height.
+      //
+      // We deliberately do NOT depend on being able to read the derivative back. `sharp(buffer)
+      // .metadata()` on a freshly-written AVIF throws "Input buffer contains unsupported image
+      // format" inside the Next.js server runtime — AVIF *encode* works there and produces a
+      // valid file (verified: correct `ftyp` header, sensible byte length), but AVIF *decode* is
+      // not available in that context, even though a plain Node process reports
+      // `sharp.format.heif.input.buffer === true`. That asymmetry silently broke every admin
+      // image upload while the scripts in scripts/ kept working, because those run under tsx.
+      // Re-decoding an image we just encoded was never necessary; not doing it is both faster and
+      // removes the dependency entirely.
+      const width = Math.min(targetWidth, originalWidth);
+      const height = Math.round((originalHeight / originalWidth) * width);
+
+      derivatives.push({ width, height, format, buffer });
     }
   }
 

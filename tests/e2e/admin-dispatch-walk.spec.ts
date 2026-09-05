@@ -98,5 +98,11 @@ test("staff walks a real order from confirmed to dispatched to delivered", async
   await page.reload();
   await expect(page.getByText("delivered", { exact: true }).first()).toBeVisible();
   // Honest: no AWB exists in this environment — the page must say so, not show a fake one.
-  await expect(page.getByText(/not yet pushed to shiprocket|awb not yet assigned/i)).toBeVisible();
+  // Scoped to the <p> that actually carries the text: getByText with a regex matches by
+  // substring, so every ancestor containing that sentence (the <section>, #admin-main, ...) also
+  // matches and trips strict mode. Whether it trips depends on what else is rendered alongside,
+  // which is why this was intermittent rather than always broken.
+  await expect(
+    page.locator("p").filter({ hasText: /not yet pushed to shiprocket|awb not yet assigned/i }).first(),
+  ).toBeVisible();
 });

@@ -90,15 +90,28 @@ Supabase Admin API instead (`app/api/testing/auth-tokens/route.ts`).
 `pnpm test` (Vitest) needs the dev server up for its integration specs. `pnpm test:e2e`
 (Playwright) reuses a running `pnpm dev`.
 
-Two things to know about the E2E suite, both pre-existing:
+The suite writes real data, so it must never be pointed at a production database — see the
+warning below. Two rate limits are deliberately DB-backed (they have to be, to work across
+serverless invocations) and both therefore accumulate across runs:
 
-- `lib/rate-limit.ts` caps logins at 10 per 15 minutes per identifier. The four admin specs share
-  one account, so running the suite repeatedly inside that window starts failing on sign-in. Clear
-  it with `delete from auth_attempts;` between runs.
-- `admin-product-create.spec.ts` publishes a real product and leaves it there, which breaks
-  `shop-filter.spec.ts`'s "exactly 20 products" assertions on the next run. Reset the database (or
-  delete `products where slug like 'e2e-test-product-%'` **and** `rm -rf .next`, since the stale
-  listing is also in Next's on-disk data cache) for a clean pass.
+- **Logins**: `lib/rate-limit.ts` caps them at 10 per 15 minutes per identifier. The four admin
+  specs share one account, so repeated full runs inside that window start failing on sign-in.
+  Clear with `delete from auth_attempts;`.
+- **Reviews**: `lib/db/mutations/reviews.ts` caps submissions at **3 per IP per 24 hours**, checked
+  against real `reviews.created_at` rows. `pdp.spec.ts`'s review submission is the fourth once
+  three exist, and fails with no success message. Clear with `delete from reviews;` (or wait out
+  the window) before a full run.
+
+`admin-product-create.spec.ts` unpublishes the product it creates, so it no longer leaves a 21st
+entry that breaks `shop-filter.spec.ts`'s "exactly 20 products" assertions. If a run is killed
+mid-spec, clean up with `delete from products where slug like 'e2e-test-product-%'` **and**
+`rm -rf .next` — the stale listing is also cached in Next's on-disk data cache.
+
+### ⚠️ Never run the tests against a deployed database
+
+`pnpm test` and `pnpm test:e2e` create real users, orders, reviews and published products, and
+trigger real transactional email if `RESEND_API_KEY` is set. Point `.env` at the local stack first.
+Both suites also assume a seeded catalogue, so they will fail confusingly against an empty project.
 
 ## Architecture notes
 
