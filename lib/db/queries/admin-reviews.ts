@@ -72,7 +72,7 @@ export async function listAdminReviews(filters: AdminReviewFilters): Promise<{ r
 export { PAGE_SIZE as ADMIN_REVIEWS_PAGE_SIZE };
 
 export interface AdminReviewDetail extends AdminReviewRow {
-  photos: { id: number; r2Key: string; url: string }[];
+  photos: { id: number; storageKey: string; url: string }[];
 }
 
 export async function getAdminReviewById(id: number): Promise<AdminReviewDetail | null> {
@@ -97,10 +97,10 @@ export async function getAdminReviewById(id: number): Promise<AdminReviewDetail 
     .limit(1);
   if (!row) return null;
 
-  const { publicUrl } = await import("@/lib/storage/r2");
+  const { publicUrl } = await import("@/lib/storage/storage");
   const photoRows = await db.select().from(reviewPhotos).where(eq(reviewPhotos.reviewId, id)).orderBy(asc(reviewPhotos.position));
 
-  return { ...row, photoCount: photoRows.length, photos: photoRows.map((p) => ({ id: p.id, r2Key: p.r2Key, url: publicUrl(p.r2Key) })) };
+  return { ...row, photoCount: photoRows.length, photos: photoRows.map((p) => ({ id: p.id, storageKey: p.storageKey, url: publicUrl(p.storageKey) })) };
 }
 
 /** Ids of every pending review matching the given product/rating filter — backs "bulk approve"

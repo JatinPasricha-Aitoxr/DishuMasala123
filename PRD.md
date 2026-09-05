@@ -40,9 +40,9 @@ new storefront, new database, new admin panel. Nothing WordPress remains.
 |---|---|
 | Architecture | **Fully custom. No WordPress, no WooCommerce, no PHP.** One Next.js app serving storefront + admin |
 | Frontend | Next.js 15 App Router, TypeScript strict, Tailwind v4 |
-| Database | Neon Postgres + Drizzle ORM, integer paise for all money |
+| Database | Supabase Postgres + Drizzle ORM, integer paise for all money |
 | Auth | Auth.js v5, Argon2id, roles: customer / staff / admin |
-| Images | Cloudflare R2 (S3 SDK, presigned uploads, `sharp` derivatives) |
+| Images | Supabase Storage (S3-compatible protocol, presigned uploads, `sharp` derivatives) |
 | Email | Resend + React Email templates |
 | Payments | Razorpay (UPI, cards, netbanking, wallets) + COD |
 | Logistics | Shiprocket — pincode serviceability, ETA, dispatch, tracking |
@@ -195,7 +195,7 @@ one transaction. Checkout is idempotent.
 **7.4 Resend** — order confirmation, payment received, shipped with tracking, delivered, cancelled,
 password reset, email verification. Plain, well-set, brand-consistent React Email templates.
 
-**7.5 Cloudflare R2** — product images migrated off the old site, review photos, post covers.
+**7.5 Supabase Storage** — product images migrated off the old site, review photos, post covers.
 Presigned uploads, `sharp` derivatives, keys and dimensions recorded in Postgres.
 
 ---
@@ -227,7 +227,7 @@ corporate gifting flow · marketplace integrations · migrating old order histor
 
 ## 10. Open items needing the client
 
-1. **Neon, Cloudflare R2, Resend and Vercel accounts** — or approval for Bizmetric to create them
+1. **Supabase, Resend and Vercel accounts** — or approval for Bizmetric to create them
    under the client's billing.
 2. **Razorpay** live keys with KYC completed, and the webhook secret.
 3. **Shiprocket** credentials, pickup address, and **per-variant weights** — missing from the export;

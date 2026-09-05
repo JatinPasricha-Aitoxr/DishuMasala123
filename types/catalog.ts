@@ -30,7 +30,7 @@ export interface CollectionSummary extends Collection {
 export interface ProductImage {
   id: number;
   productId: number;
-  r2Key: string;
+  storageKey: string;
   alt: string;
   width: number;
   height: number;
@@ -78,7 +78,7 @@ export interface ProductWithVariants extends Product {
 }
 
 /** A product image resolved to a real, absolute URL — the shape every card/thumbnail consumer
- * actually needs to render an `<img>`/`<Image>`, as opposed to `ProductImage`'s raw `r2Key` (which
+ * actually needs to render an `<img>`/`<Image>`, as opposed to `ProductImage`'s raw `storageKey` (which
  * only a server-only module may resolve via `publicUrl`, CLAUDE.md §3.3). */
 export interface ProductThumbnail {
   url: string;

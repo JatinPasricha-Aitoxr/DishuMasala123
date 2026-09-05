@@ -1,25 +1,37 @@
 "use server";
 
 /**
- * Register / verify / reset server actions (CLAUDE.md §2 / PROMPTS.md Phase 6 item 1). Login
- * itself lives in auth.ts's Credentials `authorize` (invoked via next-auth's own `signIn`), not
- * here — these are the flows around it.
+ * Every authentication flow, as server actions against Supabase Auth (CLAUDE.md §2). The app
+ * constructs no Supabase client in the browser at all — the session is an httpOnly cookie written
+ * by these actions and refreshed by middleware.ts — which is why no Supabase key is inlined into
+ * the client bundle.
  *
- * No-enumeration discipline: `registerAction` and `requestPasswordResetAction` both return the
- * exact same generic message whether or not the email is already registered / exists, and both
- * do a real-shaped amount of work either way (see each function's comment) so a fast/slow
- * response difference can't be used as an oracle either.
+ * NO-ENUMERATION DISCIPLINE (unchanged in intent from the Auth.js implementation this replaces):
+ * `registerAction` and `requestPasswordResetAction` both return the exact same generic result
+ * whether or not the email is already registered, and `loginAction` returns one generic message
+ * for every failure — wrong password, unknown email, or a rate-limit rejection. Supabase's own
+ * responses are deliberately NOT surfaced verbatim, because several of them do distinguish those
+ * cases.
+ *
+ * WHAT MOVED TO SUPABASE, AND WHAT DID NOT:
+ * - Password hashing, email-verification tokens and password-reset tokens are now Supabase's
+ *   (bcrypt + its own single-use token store), replacing this project's Argon2id hashes and the
+ *   hash-fingerprinted reset tokens in the now-deleted lib/tokens.ts.
+ * - The IP+email rate limiting in lib/rate-limit.ts is KEPT and still runs first. Supabase has
+ *   its own per-IP limits ([auth.rate_limit] in supabase/config.toml), but they are per-IP only;
+ *   the per-email limit that makes credential-stuffing against one account expensive is this
+ *   project's own and has no Supabase equivalent.
+ * - The deliberate timing burns are gone. They existed to hide a fast "no such user" database
+ *   miss behind a slow Argon2 verify; Supabase answers both cases over the network on its own
+ *   timing, which this code cannot control or meaningfully equalise.
  */
 import { headers } from "next/headers";
 import { z } from "zod";
-import { createUser, markEmailVerified, updatePasswordHash } from "@/lib/db/mutations/users";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserByEmail, getUserById } from "@/lib/db/queries/users";
-import { hashPassword, burnPasswordVerifyTime } from "@/lib/auth/password";
+import { markLastLogin } from "@/lib/db/mutations/users";
 import { checkRateLimit, clientIpFromHeaders } from "@/lib/rate-limit";
-import { signPayloadToken, verifyPayloadToken } from "@/lib/tokens";
-import { sendVerifyEmail, sendResetPasswordEmail } from "@/lib/email";
 import { getSessionUser } from "@/lib/auth/session";
-import { createHash } from "node:crypto";
 
 const siteUrl = () => process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
@@ -28,8 +40,44 @@ async function requestIp(): Promise<string | null> {
   return clientIpFromHeaders(h);
 }
 
-function pwdFingerprint(passwordHash: string): string {
-  return createHash("sha256").update(passwordHash).digest("hex").slice(0, 16);
+// ---- Login --------------------------------------------------------------------------------
+
+const loginSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(1),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;
+export type LoginResult = { ok: true } | { ok: false; error: string };
+
+const GENERIC_LOGIN_ERROR = "That email and password combination doesn't match our records.";
+
+export async function loginAction(input: LoginInput): Promise<LoginResult> {
+  const parsed = loginSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: GENERIC_LOGIN_ERROR };
+  const { email, password } = parsed.data;
+
+  const ip = await requestIp();
+  const { allowed } = await checkRateLimit("login", { ip, email });
+  // Same generic message as a credential failure: a distinct "you are rate limited" reply is
+  // itself an oracle telling an attacker the address is worth continuing to hammer.
+  if (!allowed) return { ok: false, error: GENERIC_LOGIN_ERROR };
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.user) return { ok: false, error: GENERIC_LOGIN_ERROR };
+
+  const appUser = await getUserByEmail(email);
+  if (appUser) await markLastLogin(appUser.id);
+
+  return { ok: true };
+}
+
+// ---- Sign out -----------------------------------------------------------------------------
+
+export async function signOutAction(): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  await supabase.auth.signOut();
 }
 
 // ---- Register -----------------------------------------------------------------------------
@@ -50,6 +98,11 @@ const registerSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type RegisterResult = { ok: true } | { ok: false; error: string; rateLimited?: boolean };
 
+/**
+ * `name` and `phone` ride along in Supabase's user metadata; the `on_auth_user_created` trigger
+ * (migration 0008) reads them straight back out to populate `public.users`, so the app row and
+ * the auth identity are created together rather than by two racing round-trips.
+ */
 export async function registerAction(input: RegisterInput): Promise<RegisterResult> {
   const parsed = registerSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid details" };
@@ -58,50 +111,23 @@ export async function registerAction(input: RegisterInput): Promise<RegisterResu
   const { allowed } = await checkRateLimit("register", { ip, email: parsed.data.email });
   if (!allowed) return { ok: false, error: "Too many attempts. Please try again later.", rateLimited: true };
 
-  const result = await createUser({
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
-    name: parsed.data.name,
-    phone: parsed.data.phone,
     password: parsed.data.password,
+    options: {
+      data: { name: parsed.data.name, phone: parsed.data.phone },
+      emailRedirectTo: `${siteUrl()}/auth/confirm?next=${encodeURIComponent("/verify-email")}`,
+    },
   });
 
-  if (!result.ok) {
-    // Email already taken — never say so. Burn a comparable amount of time (register's real path
-    // just did a real Argon2 hash; the "taken" path does its own here) and return the identical
-    // generic message.
-    await burnPasswordVerifyTime();
-    return { ok: true }; // same success shape as a real registration — no enumeration
-  }
-
-  const user = await getUserByEmail(parsed.data.email);
-  if (user) {
-    const token = signPayloadToken("email-verify", { userId: user.id, email: user.email }, 24 * 60 * 60 * 1000);
-    const verifyUrl = `${siteUrl()}/verify-email?token=${encodeURIComponent(token)}`;
-    await sendVerifyEmail(user.email, user.name, verifyUrl);
-  }
+  // Never distinguish "already registered" from a fresh signup — same success shape either way.
+  if (error) return { ok: true };
 
   return { ok: true };
 }
 
-// ---- Email verification --------------------------------------------------------------------
-
-type EmailVerifyPayload = {
-  userId: number;
-  email: string;
-};
-
-export type VerifyEmailResult = { ok: true } | { ok: false };
-
-/** Called from app/verify-email/page.tsx. Idempotent — verifying an already-verified account is
- * a harmless no-op success, not an error. */
-export async function verifyEmailAction(token: string): Promise<VerifyEmailResult> {
-  const payload = verifyPayloadToken<EmailVerifyPayload>("email-verify", token);
-  if (!payload) return { ok: false };
-  const user = await getUserByEmail(payload.email);
-  if (!user || user.id !== payload.userId) return { ok: false };
-  await markEmailVerified(user.id);
-  return { ok: true };
-}
+// ---- Email verification ----------------------------------------------------------------------
 
 export type ResendVerificationResult = { ok: true };
 
@@ -112,9 +138,12 @@ export async function resendVerificationAction(): Promise<ResendVerificationResu
   if (sessionUser) {
     const user = await getUserById(sessionUser.id);
     if (user && !user.emailVerifiedAt) {
-      const token = signPayloadToken("email-verify", { userId: user.id, email: user.email }, 24 * 60 * 60 * 1000);
-      const verifyUrl = `${siteUrl()}/verify-email?token=${encodeURIComponent(token)}`;
-      await sendVerifyEmail(user.email, user.name, verifyUrl);
+      const supabase = await createSupabaseServerClient();
+      await supabase.auth.resend({
+        type: "signup",
+        email: user.email,
+        options: { emailRedirectTo: `${siteUrl()}/auth/confirm?next=${encodeURIComponent("/verify-email")}` },
+      });
     }
   }
   return { ok: true };
@@ -136,45 +165,28 @@ export async function requestPasswordResetAction(input: { email: string }): Prom
   const { allowed } = await checkRateLimit("reset_request", { ip, email: parsed.data.email });
   if (!allowed) return { ok: true, message: GENERIC_RESET_MESSAGE };
 
-  const user = await getUserByEmail(parsed.data.email);
-  if (!user) {
-    await burnPasswordVerifyTime();
-    return { ok: true, message: GENERIC_RESET_MESSAGE };
-  }
-
-  const token = signPayloadToken(
-    "password-reset",
-    { userId: user.id, email: user.email, fp: pwdFingerprint(user.passwordHash) },
-    30 * 60 * 1000,
-  );
-  const resetUrl = `${siteUrl()}/reset-password?token=${encodeURIComponent(token)}`;
-  await sendResetPasswordEmail(user.email, user.name, resetUrl);
+  const supabase = await createSupabaseServerClient();
+  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${siteUrl()}/auth/confirm?next=${encodeURIComponent("/reset-password?mode=set")}`,
+  });
 
   return { ok: true, message: GENERIC_RESET_MESSAGE };
 }
 
-type ResetPayload = {
-  userId: number;
-  email: string;
-  fp: string;
-};
-
 const confirmResetSchema = z.object({
-  token: z.string().min(1),
   newPassword: z.string().min(8, "Use at least 8 characters").max(200),
 });
 
 export type ConfirmResetResult = { ok: true } | { ok: false; error: string };
 
 /**
- * The token embeds a fingerprint of the password hash it was issued against (`fp`), so once this
- * function changes the password, the exact same token becomes invalid on any replay — real
- * single-use, with no separate "used tokens" table needed (lib/tokens.ts's doc comment explains
- * the trick). Rate-limited by IP alone (no email at this point — the email is inside the signed
- * token, not user input, so there's nothing to rate-limit it against without first trusting an
- * unverified token).
+ * Supabase's reset link puts the user into a real (recovery) session before they land on
+ * /reset-password, so the confirmation step is an authenticated password change rather than a
+ * token this code has to verify itself — which is why there is no `token` parameter any more.
+ * `updateUser` fails outright without that session, so an unauthenticated caller cannot change
+ * anyone's password by calling this action directly.
  */
-export async function resetPasswordAction(input: { token: string; newPassword: string }): Promise<ConfirmResetResult> {
+export async function resetPasswordAction(input: { newPassword: string }): Promise<ConfirmResetResult> {
   const parsed = confirmResetSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid request" };
 
@@ -182,15 +194,14 @@ export async function resetPasswordAction(input: { token: string; newPassword: s
   const { allowed } = await checkRateLimit("reset_confirm", { ip });
   if (!allowed) return { ok: false, error: "Too many attempts. Please try again later." };
 
-  const payload = verifyPayloadToken<ResetPayload>("password-reset", parsed.data.token);
-  if (!payload) return { ok: false, error: "This reset link is invalid or has expired. Request a new one." };
-
-  const user = await getUserByEmail(payload.email);
-  if (!user || user.id !== payload.userId || pwdFingerprint(user.passwordHash) !== payload.fp) {
+  const supabase = await createSupabaseServerClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) {
     return { ok: false, error: "This reset link is invalid or has expired. Request a new one." };
   }
 
-  const newHash = await hashPassword(parsed.data.newPassword);
-  await updatePasswordHash(user.id, newHash);
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.newPassword });
+  if (error) return { ok: false, error: "Could not update your password. Request a new reset link." };
+
   return { ok: true };
 }

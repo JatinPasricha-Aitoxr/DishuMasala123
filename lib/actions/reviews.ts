@@ -6,7 +6,7 @@ import { z } from "zod";
 import { submitReview } from "@/lib/db/mutations/reviews";
 import { getProductBySlug } from "@/lib/db/queries/product-detail";
 import { getApprovedReviews, type ReviewSort } from "@/lib/db/queries/reviews";
-import { publicUrl } from "@/lib/storage/r2";
+import { publicUrl } from "@/lib/storage/storage";
 
 const reviewSchema = z.object({
   productSlug: z.string().min(1),
@@ -70,12 +70,12 @@ export async function submitReviewAction(input: ReviewFormInput): Promise<Submit
   return { ok: true, reviewId: result.reviewId };
 }
 
-/** R2 may not be configured in every environment (this dev one included — no bucket credentials
+/** Supabase Storage may not be configured in every environment (this dev one included — no bucket credentials
  * exist yet, CLAUDE.md-honest about it rather than crashing the reviews list over it). A photo
  * URL that can't be resolved is simply omitted, never a thrown error mid-render. */
-function safePublicUrl(r2Key: string): string | null {
+function safePublicUrl(storageKey: string): string | null {
   try {
-    return publicUrl(r2Key);
+    return publicUrl(storageKey);
   } catch {
     return null;
   }
@@ -122,7 +122,7 @@ export async function getReviewsPageAction(
       ...item,
       createdAt: item.createdAt.toISOString(),
       photos: item.photos
-        .map((p) => ({ id: p.id, url: safePublicUrl(p.r2Key) }))
+        .map((p) => ({ id: p.id, url: safePublicUrl(p.storageKey) }))
         .filter((p): p is ReviewPagePhoto => p.url != null),
     })),
   };

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
-import { buildKey, publicUrl, putObject, MAX_UPLOAD_BYTES } from "@/lib/storage/r2";
+import { buildKey, publicUrl, putObject, MAX_UPLOAD_BYTES } from "@/lib/storage/storage";
 
 /**
  * Review-photo upload endpoint (PROMPTS.md Phase 4 item 7).
@@ -10,8 +10,8 @@ import { buildKey, publicUrl, putObject, MAX_UPLOAD_BYTES } from "@/lib/storage/
  * bytes through this server at all, so there would be nowhere to run the required server-side
  * checks — real magic-byte type validation and EXIF stripping via `sharp` (both explicit
  * requirements of this phase). Instead the browser POSTs the file here directly; this route
- * validates it for real, strips EXIF, and reuses lib/storage/r2.ts's `putObject`/`buildKey`
- * (the same primitives a presigned flow would ultimately write through) to land it in R2. The key
+ * validates it for real, strips EXIF, and reuses lib/storage/storage.ts's `putObject`/`buildKey`
+ * (the same primitives a presigned flow would ultimately write through) to land it in Supabase Storage. The key
  * convention (`reviews/<id>/<hash>.<ext>`) is unchanged from CLAUDE.md §6 — `<id>` here is a
  * client-generated draft id (one per in-progress review form) rather than a real review row,
  * since the review itself doesn't exist until the form is submitted.
@@ -96,5 +96,5 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
   }
 
-  return NextResponse.json({ ok: true, r2Key: key, url: publicUrl(key), draftId });
+  return NextResponse.json({ ok: true, storageKey: key, url: publicUrl(key), draftId });
 }

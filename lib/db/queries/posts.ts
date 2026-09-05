@@ -25,19 +25,19 @@ async function fetchPublishedPosts(kind?: "blog" | "recipe"): Promise<PostSummar
   if (kind) conditions.push(eq(posts.kind, kind));
 
   const rows = await db
-    .select({ id: posts.id, slug: posts.slug, kind: posts.kind, title: posts.title, excerpt: posts.excerpt, coverR2Key: posts.coverR2Key, author: posts.author, publishedAt: posts.publishedAt })
+    .select({ id: posts.id, slug: posts.slug, kind: posts.kind, title: posts.title, excerpt: posts.excerpt, coverStorageKey: posts.coverStorageKey, author: posts.author, publishedAt: posts.publishedAt })
     .from(posts)
     .where(and(...conditions))
     .orderBy(desc(posts.publishedAt));
 
-  const { publicUrl } = await import("@/lib/storage/r2");
+  const { publicUrl } = await import("@/lib/storage/storage");
   return rows.map((r) => ({
     id: r.id,
     slug: r.slug,
     kind: r.kind,
     title: r.title,
     excerpt: r.excerpt,
-    coverUrl: r.coverR2Key ? publicUrl(r.coverR2Key) : null,
+    coverUrl: r.coverStorageKey ? publicUrl(r.coverStorageKey) : null,
     author: r.author,
     publishedAt: r.publishedAt!,
   }));
@@ -62,14 +62,14 @@ async function fetchPublishedPostBySlug(slug: string, kind: "blog" | "recipe"): 
     .limit(1);
   if (!row) return null;
 
-  const { publicUrl } = await import("@/lib/storage/r2");
+  const { publicUrl } = await import("@/lib/storage/storage");
   return {
     id: row.id,
     slug: row.slug,
     kind: row.kind,
     title: row.title,
     excerpt: row.excerpt,
-    coverUrl: row.coverR2Key ? publicUrl(row.coverR2Key) : null,
+    coverUrl: row.coverStorageKey ? publicUrl(row.coverStorageKey) : null,
     author: row.author,
     publishedAt: row.publishedAt!,
     body: parseTiptapDoc(row.body),
@@ -110,7 +110,7 @@ export async function getRelatedProductsForPost(relatedProductIds: number[], tag
     .limit(4);
 
   if (rows.length === 0) return [];
-  const { publicUrl } = await import("@/lib/storage/r2");
+  const { publicUrl } = await import("@/lib/storage/storage");
   const images = await db
     .select()
     .from(productImages)
@@ -119,6 +119,6 @@ export async function getRelatedProductsForPost(relatedProductIds: number[], tag
 
   return rows.map((r) => {
     const img = imageByProduct.get(r.id);
-    return { id: r.id, slug: r.slug, name: r.name, imageUrl: img ? publicUrl(img.r2Key) : null, imageAlt: img?.alt ?? null };
+    return { id: r.id, slug: r.slug, name: r.name, imageUrl: img ? publicUrl(img.storageKey) : null, imageAlt: img?.alt ?? null };
   });
 }

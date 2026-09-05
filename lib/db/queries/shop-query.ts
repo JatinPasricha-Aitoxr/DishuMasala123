@@ -3,7 +3,7 @@
  * shop.ts (which owns the actual `db` round trip): this file imports only drizzle-orm's SQL
  * operators and the schema tables — never the live `db` instance — so it never opens a Postgres
  * connection and can be unit-tested with `drizzle.mock()` (a real dialect binding, zero network)
- * or plugged into either the app's neon-serverless `db` or a script's plain-`pg` `scriptDb`
+ * or plugged into either the app's `db` or a script's `scriptDb` (both plain-`pg` now)
  * unchanged.
  *
  * Every filter and sort here is a URL-searchParams concept (CLAUDE.md §3.2 / PROMPTS.md Phase 3:

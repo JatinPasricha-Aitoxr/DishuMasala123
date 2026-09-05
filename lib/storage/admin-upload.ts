@@ -1,22 +1,22 @@
 import "server-only";
 
 /**
- * Generic presigned-upload-to-R2 + server-side sharp-derivative flow for content images (post
+ * Generic presigned-upload-to-storage + server-side sharp-derivative flow for content images (post
  * cover images and inline body images) — same two-step pattern as
- * lib/db/mutations/admin-products.ts's product-image flow (browser PUTs straight to R2 via a
+ * lib/db/mutations/admin-products.ts's product-image flow (browser PUTs straight to Supabase Storage via a
  * presigned URL, then the server fetches it back and runs the real derivative pipeline), factored
- * out here since posts/pages need the identical mechanics under a different R2 key prefix
+ * out here since posts/pages need the identical mechanics under a different storage key prefix
  * ("posts/<slug>/...") with no separate image-tracking table to write a row into.
  */
 import { createHash, randomUUID } from "node:crypto";
-import { buildKey, deleteObject, getObject, presignUpload, putObject, publicUrl, type R2Prefix } from "@/lib/storage/r2";
+import { buildKey, deleteObject, getObject, presignUpload, putObject, publicUrl, type StoragePrefix } from "@/lib/storage/storage";
 import { processImage } from "@/lib/storage/images";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 export async function presignContentImageUpload(
-  prefix: R2Prefix,
+  prefix: StoragePrefix,
   slug: string,
   contentType: string,
   contentLength: number,
@@ -31,10 +31,10 @@ export async function presignContentImageUpload(
 }
 
 export async function finalizeContentImageUpload(
-  prefix: R2Prefix,
+  prefix: StoragePrefix,
   slug: string,
   tmpKey: string,
-): Promise<{ url: string; r2Key: string; width: number; height: number }> {
+): Promise<{ url: string; storageKey: string; width: number; height: number }> {
   const originalBuffer = await getObject(tmpKey);
   const processed = await processImage(originalBuffer);
   const hash = createHash("sha256").update(originalBuffer).digest("hex").slice(0, 16);
@@ -53,5 +53,5 @@ export async function finalizeContentImageUpload(
   }
 
   await deleteObject(tmpKey).catch(() => {});
-  return { url: publicUrl(canonicalKey), r2Key: canonicalKey, width: canonicalWidth, height: canonicalHeight };
+  return { url: publicUrl(canonicalKey), storageKey: canonicalKey, width: canonicalWidth, height: canonicalHeight };
 }

@@ -1,6 +1,6 @@
 /**
  * Pulls the site's real logo and favicon source off dishumasala.com, generates AVIF + WebP
- * derivatives with sharp (same pipeline as scripts/migrate-images.ts), uploads them to R2, and
+ * derivatives with sharp (same pipeline as scripts/migrate-images.ts), uploads them to Supabase Storage, and
  * upserts a `site_branding` settings row so the header/footer/metadata can render the real brand
  * mark instead of a text wordmark (CLAUDE.md §8: real assets, never invented).
  *
@@ -13,7 +13,7 @@
  * Run with: pnpm migrate-brand-assets
  */
 import { createHash } from "node:crypto";
-import { buildKey, putObject } from "../lib/storage/r2-core";
+import { buildKey, putObject } from "../lib/storage/storage-core";
 import { processImage } from "../lib/storage/images";
 import { closeScriptDb, scriptDb } from "../lib/db/script-client";
 import { settings } from "../lib/db/schema";
@@ -31,7 +31,7 @@ async function migrateOne(
   slot: "logo" | "favicon",
   url: string,
   alt: string,
-): Promise<{ r2Key: string; width: number; height: number; alt: string }> {
+): Promise<{ storageKey: string; width: number; height: number; alt: string }> {
   const buffer = await download(url);
   const processed = await processImage(buffer);
   const hash = createHash("sha256").update(buffer).digest("hex").slice(0, 16);
@@ -52,7 +52,7 @@ async function migrateOne(
 
   if (!canonicalKey) throw new Error(`${slot}: no webp derivative produced`);
   console.log(`[uploaded] ${slot}: ${url} -> ${canonicalKey} (${canonicalWidth}x${canonicalHeight})`);
-  return { r2Key: canonicalKey, width: canonicalWidth, height: canonicalHeight, alt };
+  return { storageKey: canonicalKey, width: canonicalWidth, height: canonicalHeight, alt };
 }
 
 async function main(): Promise<void> {

@@ -46,7 +46,7 @@ export function PostForm({
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
   const [author, setAuthor] = useState(post?.author ?? "Dishu Food and Beverages");
   const [body, setBody] = useState<TiptapDoc>((post?.body as TiptapDoc) ?? EMPTY_DOC);
-  const [coverR2Key, setCoverR2Key] = useState<string | null>(post?.coverR2Key ?? null);
+  const [coverStorageKey, setCoverR2Key] = useState<string | null>(post?.coverStorageKey ?? null);
   const [coverUrl, setCoverUrl] = useState<string | null>(post?.coverUrl ?? null);
   const [seoTitle, setSeoTitle] = useState(post?.seoTitle ?? "");
   const [seoDescription, setSeoDescription] = useState(post?.seoDescription ?? "");
@@ -58,7 +58,7 @@ export function PostForm({
     return v.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   }
 
-  async function uploadFile(file: File): Promise<{ url: string; r2Key: string } | null> {
+  async function uploadFile(file: File): Promise<{ url: string; storageKey: string } | null> {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setError("Only JPEG, PNG or WEBP images are allowed.");
       return null;
@@ -91,7 +91,7 @@ export function PostForm({
     if (!file) return;
     const result = await uploadFile(file);
     if (result) {
-      setCoverR2Key(result.r2Key);
+      setCoverR2Key(result.storageKey);
       setCoverUrl(result.url);
     }
   }
@@ -118,7 +118,7 @@ export function PostForm({
   }
 
   function buildPayload() {
-    return { slug, kind, title, excerpt: excerpt || null, body, coverR2Key, author: author || null, seoTitle: seoTitle || null, seoDescription: seoDescription || null, relatedProductIds };
+    return { slug, kind, title, excerpt: excerpt || null, body, coverStorageKey, author: author || null, seoTitle: seoTitle || null, seoDescription: seoDescription || null, relatedProductIds };
   }
 
   function handleSave() {

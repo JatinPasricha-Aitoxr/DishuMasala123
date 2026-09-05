@@ -7,7 +7,7 @@ import sharp from "sharp";
  * variants and three images from the admin UI alone, publish it, and show it live on the
  * storefront with correct prices, alt text and priority placement." Drives the actual admin UI
  * end-to-end (Playwright, real browser) using the real staff account (same as
- * tests/e2e/admin-dispatch-walk.spec.ts), uploads three real images through the real presigned-R2
+ * tests/e2e/admin-dispatch-walk.spec.ts), uploads three real images through the real presigned-upload
  * (local MinIO substitute) path, fills real alt text, publishes, then loads the real storefront
  * product page and confirms what's there.
  */
@@ -61,7 +61,7 @@ test("staff creates a two-variant, three-image product from the admin UI alone a
   await page.getByRole("button", { name: "Create draft" }).click();
   await expect(page).toHaveURL(/\/admin\/products\/\d+$/, { timeout: 15_000 });
 
-  // ---- Upload three real images through the real presigned-R2 (MinIO) path --------------------
+  // ---- Upload three real images through the real presigned-upload path --------------------
   const [imgA, imgB, imgC] = await Promise.all([makeTestImage(30), makeTestImage(90), makeTestImage(150)]);
   const fileInput = page.locator('input[type="file"][accept*="image"]').first();
   await fileInput.setInputFiles([

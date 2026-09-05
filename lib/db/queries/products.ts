@@ -5,7 +5,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../index";
 import { collections, productImages, products, variants } from "../schema";
 import { paise } from "@/lib/money";
-import { publicUrl } from "@/lib/storage/r2";
+import { publicUrl } from "@/lib/storage/storage";
 import type { ProductCardData, ProductThumbnail } from "@/types/catalog";
 
 /**
@@ -130,7 +130,7 @@ async function attachImages(productsOut: ProductCardData[]): Promise<void> {
   const byProductId = new Map<number, ProductThumbnail[]>();
   for (const img of imageRows) {
     const list = byProductId.get(img.productId) ?? [];
-    list.push({ url: publicUrl(img.r2Key), alt: img.alt, width: img.width, height: img.height });
+    list.push({ url: publicUrl(img.storageKey), alt: img.alt, width: img.width, height: img.height });
     byProductId.set(img.productId, list);
   }
   for (const product of productsOut) {

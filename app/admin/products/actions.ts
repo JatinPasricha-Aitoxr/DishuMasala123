@@ -255,16 +255,16 @@ export async function finalizeProductImageUploadAction(
 
   try {
     const row = await finalizeProductImageUploadDb(parsed.data.productId, parsed.data.productSlug, parsed.data.tmpKey);
-    const { publicUrl } = await import("@/lib/storage/r2");
+    const { publicUrl } = await import("@/lib/storage/storage");
     await writeAuditLog({
       actorUserId: auth.user.id,
       action: "product.image_upload",
       entity: "product",
       entityId: parsed.data.productId,
-      diff: { r2Key: row.r2Key, width: row.width, height: row.height },
+      diff: { storageKey: row.storageKey, width: row.width, height: row.height },
     });
     revalidatePath(`/admin/products/${parsed.data.productId}`);
-    return { ok: true, message: "Image uploaded — add alt text before publishing.", data: { id: row.id, url: publicUrl(row.r2Key) } };
+    return { ok: true, message: "Image uploaded — add alt text before publishing.", data: { id: row.id, url: publicUrl(row.storageKey) } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Upload processing failed." };
   }

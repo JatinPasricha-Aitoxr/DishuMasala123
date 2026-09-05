@@ -1,7 +1,7 @@
 /**
  * Replaces a single product's PDP gallery with a new, client-supplied photo set —
  * data/products/<slug>/1.png, 2.png, ... (numeric filename order = display order, 1 becomes the
- * primary/cover photo) — uploaded to R2 (content-hash keys, same pipeline as
+ * primary/cover photo) — uploaded to Supabase Storage (content-hash keys, same pipeline as
  * scripts/migrate-images.ts) and swapped in for the product's existing `product_images` rows
  * rather than appended to them, since every request so far has been "change the photos", not "add
  * more". Generic by slug (not a one-off script per product) after the third near-identical
@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildKey, putObject } from "../lib/storage/r2-core";
+import { buildKey, putObject } from "../lib/storage/storage-core";
 import { processImage } from "../lib/storage/images";
 import { closeScriptDb, eq, scriptDb } from "../lib/db/script-client";
 import { productImages, products } from "../lib/db/schema";
@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   }
 
   const files = loadFiles(slug);
-  const uploaded: { position: number; r2Key: string; width: number; height: number }[] = [];
+  const uploaded: { position: number; storageKey: string; width: number; height: number }[] = [];
 
   for (const [position, file] of files.entries()) {
     const buffer = readFileSync(join(process.cwd(), "data/products", slug, file));
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
     }
 
     if (!canonicalKey) throw new Error(`${file}: no webp derivative produced`);
-    uploaded.push({ position, r2Key: canonicalKey, width: canonicalWidth, height: canonicalHeight });
+    uploaded.push({ position, storageKey: canonicalKey, width: canonicalWidth, height: canonicalHeight });
     console.log(`[uploaded] #${position}: ${file} -> ${canonicalKey} (${canonicalWidth}x${canonicalHeight})`);
   }
 
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
   await scriptDb.insert(productImages).values(
     uploaded.map((img) => ({
       productId: product.id,
-      r2Key: img.r2Key,
+      storageKey: img.storageKey,
       alt: `${product.name} — pack photo ${img.position + 1} of ${uploaded.length}`,
       width: img.width,
       height: img.height,

@@ -9,7 +9,7 @@ export const posts = pgTable("posts", {
   excerpt: text(),
   // Tiptap JSON document.
   body: jsonb().notNull(),
-  coverR2Key: text("cover_r2_key"),
+  coverStorageKey: text("cover_storage_key"),
   status: contentStatusEnum().notNull().default("draft"),
   author: text(),
   publishedAt: timestamp("published_at", { withTimezone: true }),

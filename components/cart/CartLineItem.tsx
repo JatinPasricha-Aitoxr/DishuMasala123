@@ -7,7 +7,7 @@ import { useCartStore, type CartLine } from "@/lib/store/cart";
 
 /** One cart line — image, name, option, quantity control, remove, line total (PROMPTS.md Phase 5
  * item 2). `line.imageUrl` is only ever set by the component that added the line (the PDP's "Add
- * to cart" and every card's "Quick add" — both now resolve a real R2 image URL server-side before
+ * to cart" and every card's "Quick add" — both now resolve a real storage image URL server-side before
  * it reaches this client state); falls back to the generic placeholder for older/partial lines
  * that never got one (e.g. AccountSync's guest-cart-merge stub, before its own revalidate resolves). */
 export function CartLineItem({ line }: { line: CartLine }) {

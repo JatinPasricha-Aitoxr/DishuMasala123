@@ -7,7 +7,9 @@
  *
  * Detects a real sign-in (not just "a session exists on this page load", which would be true on
  * every navigation for an already-signed-in user) by watching `useSession()`'s status transition
- * from "unauthenticated"/"loading" to "authenticated" within THIS component's lifetime — a fresh
+ * from "unauthenticated" to "authenticated" within THIS component's lifetime — the value comes
+ * from the server-rendered session context, so it flips on the `router.refresh()` that follows a
+ * successful sign-in (lib/actions/auth.ts). A fresh
  * mount that's already authenticated (e.g. a normal page load while signed in) never fires the
  * merge, since there's nothing anonymous left to merge by then. A `localStorage` guard
  * (`dm-merged-<userId>`) additionally makes it a no-op if it somehow re-fires for the same account
@@ -15,7 +17,7 @@
  * already happen" rather than exact.
  */
 import { useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/providers/SessionProvider";
 import { useCartStore } from "@/lib/store/cart";
 import { useWishlistStore } from "@/lib/store/wishlist";
 import { mergeCartAction } from "@/lib/actions/cart";

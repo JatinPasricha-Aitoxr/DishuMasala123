@@ -1,6 +1,6 @@
 /**
  * Uploads the client-supplied Red Tea collection-page hero banner (data/banners/Banner Red
- * Tea.png, plus a portrait crop for mobile) to R2 and saves `settings.red_tea_page_banner` —
+ * Tea.png, plus a portrait crop for mobile) to Supabase Storage and saves `settings.red_tea_page_banner` —
  * rendered at the top of /collections/red-tea, above the existing collection header. Same
  * "invent nothing" exception as scripts/migrate-homepage-banners.ts (see that file's header and
  * CLAUDE.md §8's 2026-08-28 note) — the image carries the client's own marketing text baked into

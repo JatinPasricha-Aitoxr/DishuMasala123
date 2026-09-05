@@ -1,6 +1,6 @@
 /**
  * Uploads the client-supplied homepage promotional banners (data/banners/*.png — provided
- * directly by the client, not scraped from the old site) to R2 and saves
+ * directly by the client, not scraped from the old site) to Supabase Storage and saves
  * `settings.homepage_banners`, an ordered list the homepage slider reads.
  *
  * IMPORTANT — deliberate, explicit exception to CLAUDE.md §8 ("invent nothing" / no health

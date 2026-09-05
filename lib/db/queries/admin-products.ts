@@ -8,7 +8,7 @@ import "server-only";
 import { and, asc, desc, eq, ilike, ne, sql } from "drizzle-orm";
 import { db } from "../index";
 import { collections, productImages, products, variants } from "../schema";
-import { publicUrl } from "@/lib/storage/r2";
+import { publicUrl } from "@/lib/storage/storage";
 
 export interface AdminProductListRow {
   id: number;
@@ -96,7 +96,7 @@ export interface AdminVariantRow {
 
 export interface AdminImageRow {
   id: number;
-  r2Key: string;
+  storageKey: string;
   url: string;
   alt: string;
   width: number;
@@ -149,7 +149,7 @@ export async function getAdminProductById(id: number): Promise<AdminProductDetai
     seoTitle: product.seoTitle,
     seoDescription: product.seoDescription,
     variants: variantRows,
-    images: imageRows.map((img) => ({ ...img, url: publicUrl(img.r2Key) })),
+    images: imageRows.map((img) => ({ ...img, url: publicUrl(img.storageKey) })),
   };
 }
 
@@ -166,13 +166,13 @@ export async function getProductSlugAndStatus(id: number): Promise<{ slug: strin
   return row ?? null;
 }
 
-/** Checks whether an R2 key is referenced by any product image OTHER than the one being deleted —
+/** Checks whether a storage key is referenced by any product image OTHER than the one being deleted —
  * PROMPTS.md Phase 8 item 1's "delete with a real check that nothing else still references that
- * R2 key before removing it". Each image row has its own unique derivative key
+ * storage key before removing it". Each image row has its own unique derivative key
  * (products/<slug>/<hash>-w<width>.<ext>), so in practice this only guards against a duplicate
  * upload of the exact same bytes to the same key, but the check is real, not decorative. */
-export async function countProductImageReferencesToKey(r2Key: string, excludeImageId?: number): Promise<number> {
-  const conditions = [eq(productImages.r2Key, r2Key)];
+export async function countProductImageReferencesToKey(storageKey: string, excludeImageId?: number): Promise<number> {
+  const conditions = [eq(productImages.storageKey, storageKey)];
   if (excludeImageId != null) conditions.push(ne(productImages.id, excludeImageId));
   const [row] = await db.select({ count: sql<number>`count(*)` }).from(productImages).where(and(...conditions));
   return Number(row?.count ?? 0);

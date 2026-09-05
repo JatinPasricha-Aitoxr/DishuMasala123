@@ -11,7 +11,7 @@ export interface PostInput {
   title: string;
   excerpt: string | null;
   body: TiptapDoc;
-  coverR2Key: string | null;
+  coverStorageKey: string | null;
   author: string | null;
   seoTitle: string | null;
   seoDescription: string | null;

@@ -30,10 +30,10 @@ export interface CartLine {
   sku: string;
   mrpPaise: number;
   unitPricePaise: number;
-  /** A resolved, absolute image URL (never a raw r2Key — a client component has no way to turn
+  /** A resolved, absolute image URL (never a raw storageKey — a client component has no way to turn
    * one into a URL itself, CLAUDE.md §3.3's server-only boundary). Display-only: never sent back
    * to /api/cart/validate and never part of the order snapshot (lib/db/mutations/orders.ts writes
-   * order_items.image_r2_key from the server's own re-derived pricing, not from this field). */
+   * order_items.image_storage_key from the server's own re-derived pricing, not from this field). */
   imageUrl: string | null;
 }
 
@@ -52,10 +52,10 @@ interface AddItemInput {
   sku: string;
   mrpPaise: number;
   unitPricePaise: number;
-  /** A resolved, absolute image URL (never a raw r2Key — a client component has no way to turn
+  /** A resolved, absolute image URL (never a raw storageKey — a client component has no way to turn
    * one into a URL itself, CLAUDE.md §3.3's server-only boundary). Display-only: never sent back
    * to /api/cart/validate and never part of the order snapshot (lib/db/mutations/orders.ts writes
-   * order_items.image_r2_key from the server's own re-derived pricing, not from this field). */
+   * order_items.image_storage_key from the server's own re-derived pricing, not from this field). */
   imageUrl: string | null;
 }
 

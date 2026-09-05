@@ -17,12 +17,34 @@ if (!process.env.DATABASE_URL && existsSync(".env")) {
  *   tests/unit/order-status.test.ts's proof of the pure state-machine function.
  * - "Every mutation writes an audit_log row — show one real diff" — captured here from a real row.
  *
- * `@/auth`'s `auth()` is mocked (same as tests/unit/auth-session-gate.test.ts) so this test can
+ * Supabase's `getUser()` and the `public.users` lookup are mocked (same as
+ * tests/unit/auth-session-gate.test.ts) so this test can
  * drive both a customer-role and a staff-role session without needing real cookies/HTTP — the
- * gate under test (`requireStaffOrAdmin`) reads exactly that function.
+ * gate under test (`requireStaffOrAdmin`) resolves the session through exactly those two.
  */
 const mockAuth = vi.fn();
-vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: async () => ({
+    auth: {
+      async getUser() {
+        const session = await mockAuth();
+        return session?.user
+          ? { data: { user: { id: `auth-uuid-${session.user.id}` } }, error: null }
+          : { data: { user: null }, error: null };
+      },
+    },
+  }),
+}));
+// Partial mock: only the auth-id lookup the session gate uses is faked, so any other real query
+// in this file's module graph still runs against the real database.
+vi.mock("@/lib/db/queries/users", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/queries/users")>()),
+  async getUserByAuthId() {
+    const session = await mockAuth();
+    if (!session?.user) return null;
+    return { id: Number(session.user.id), role: session.user.role };
+  },
+}));
 
 // Outside a real Next.js request (this is plain vitest/Node), `revalidatePath`/`updateTag` throw
 // ("static generation store missing") — they need Next's request-scoped store, which only exists

@@ -28,7 +28,7 @@ export const PLACEHOLDER_MANIFEST = {
     aspectRatio: "1 / 1",
     standsInFor:
       "A real product packshot on white/ivory background, migrated from dishumasala.com's " +
-      "wp-content/uploads via scripts/migrate-images.ts and served from R2 (product_images table). " +
+      "wp-content/uploads via scripts/migrate-images.ts and served from Supabase Storage (product_images table). " +
       "Used only when a product has no product_images row yet — never in place of a real photo " +
       "that exists.",
     tone: "flat",
@@ -74,7 +74,7 @@ export const PLACEHOLDER_MANIFEST = {
   "blog-cover-generic": {
     aspectRatio: "16 / 9",
     standsInFor:
-      "A blog/recipe post cover image (posts.cover_r2_key) before a real photo or illustration is " +
+      "A blog/recipe post cover image (posts.cover_storage_key) before a real photo or illustration is " +
       "commissioned for that specific post.",
     tone: "flat-warm",
   },

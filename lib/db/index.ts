@@ -1,38 +1,48 @@
 import "server-only";
 
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import ws from "ws";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "./schema";
 
-// The Node runtime on Vercel and Node 20 don't reliably ship a global WebSocket implementation
-// (Node only stabilised it in later 22.x releases), and this app must also run under plain
-// PM2 + Nginx (CLAUDE.md §10) — so always provide the `ws` polyfill rather than relying on the
-// environment to have one. Pool-based (not neon-http) so real multi-statement transactions work,
-// which checkout's stock/coupon/order-insert atomicity requires (CLAUDE.md §7.5).
-neonConfig.webSocketConstructor = ws;
-
+/**
+ * The app's Drizzle client, talking to Supabase Postgres over the plain Postgres wire protocol
+ * via `pg` — the same driver `lib/db/script-client.ts` uses, so app and scripts now share one
+ * driver instead of the two this project needed under Neon (whose serverless driver only spoke
+ * to Neon's own WebSocket proxy, and needed a `ghcr.io/neondatabase/wsproxy` sidecar to reach any
+ * non-Neon Postgres locally). Supabase is ordinary Postgres, so that whole apparatus is gone.
+ *
+ * Pool-based, not a single connection, so real multi-statement transactions work — checkout's
+ * stock-decrement / coupon-increment / order-insert atomicity depends on it (CLAUDE.md §7.5).
+ *
+ * CONNECTION TARGET (see .env.example for the three Supabase connection strings):
+ * - Local dev: the direct connection on 127.0.0.1:54422, no SSL.
+ * - Deployed on Vercel: the Supavisor **transaction** pooler (port 6543). Serverless functions
+ *   open far more short-lived connections than Postgres can hold, and the transaction pooler is
+ *   what Supabase provides for exactly that. It still supports real transactions — it pins a
+ *   backend for the duration of one — so §7.5's atomicity requirement holds.
+ * - Migrations (`drizzle-kit`) use the direct/session connection instead, since DDL and advisory
+ *   locks don't survive transaction-mode pooling. drizzle.config.ts reads DIRECT_DATABASE_URL.
+ *
+ * Transaction-mode pooling cannot carry server-side prepared statements across connections, so
+ * nothing in this codebase may call Drizzle's `.prepare()`. Nothing does today; keep it that way.
+ */
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is not set. Copy .env.example to .env and fill it in.");
 }
 
-// Local development against a plain (non-Neon) Postgres — e.g. a Docker Postgres used before a
-// real Neon project exists — needs Neon's local wsproxy sidecar
-// (`ghcr.io/neondatabase/wsproxy`) in front of it, since the serverless driver otherwise only
-// speaks to Neon's own proxy (see Neon's docs: "Connect with the serverless driver from a local
-// environment"). This activates ONLY when DATABASE_URL points at localhost/127.0.0.1; any real
-// Neon host (production, or a Neon dev branch) is untouched.
-const dbHost = new URL(databaseUrl.replace(/^postgres(ql)?:/, "http:")).hostname;
-if (dbHost === "localhost" || dbHost === "127.0.0.1") {
-  const proxyPort = process.env.NEON_LOCAL_WS_PROXY_PORT ?? "4444";
-  neonConfig.wsProxy = (host) => `${host}:${proxyPort}/v1`;
-  neonConfig.useSecureWebSocket = false;
-  neonConfig.pipelineTLS = false;
-  neonConfig.pipelineConnect = false;
-}
+/**
+ * Kept deliberately small. Every serverless instance gets its own pool, so a large `max` here
+ * multiplies across instances and exhausts the pooler's own connection budget rather than
+ * helping. Override with DATABASE_POOL_MAX where a long-lived single process (PM2 + Nginx on a
+ * VPS — the deployment path CLAUDE.md §10 keeps open) can safely hold more.
+ */
+const poolMax = Number(process.env.DATABASE_POOL_MAX ?? 5);
 
-const pool = new Pool({ connectionString: databaseUrl });
+const pool = new Pool({
+  connectionString: databaseUrl,
+  max: Number.isFinite(poolMax) && poolMax > 0 ? poolMax : 5,
+});
 
 export const db = drizzle(pool, { schema });
 export type Database = typeof db;

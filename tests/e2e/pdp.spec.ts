@@ -69,7 +69,7 @@ test.describe("Review submission validation", () => {
     expect(bigBody.ok).toBe(false);
     expect(bigBody.error).toMatch(/5MB/);
 
-    // 4th photo: R2 isn't configured in this dev environment (no credentials — a documented,
+    // 4th photo: Supabase Storage isn't configured in this dev environment (no credentials — a documented,
     // expected state, not a bug), so a real upload can never succeed here to get 3 photos
     // genuinely attached first. The count limit itself is still real, client-side validation that
     // runs before any network call — selecting 4 files in one go trips it directly.

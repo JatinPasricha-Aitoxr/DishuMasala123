@@ -6,15 +6,15 @@ import "server-only";
  * an order — that would let anyone enumerate `DM-2026-00001`, `DM-2026-00002`, ... and read other
  * customers' orders. Instead the confirmation email links to
  * `/order/<orderNumber>?email=<email>&token=<hmac>`, where `token` is
- * HMAC-SHA256(`${orderNumber}|${email}`, AUTH_SECRET) — unguessable without the secret, and the
+ * HMAC-SHA256(`${orderNumber}|${email}`, ORDER_LINK_SECRET) — unguessable without the secret, and the
  * page (app/order/[orderNumber]/page.tsx) verifies it with a timing-safe compare before rendering
  * anything.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 function getSecret(): string {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) throw new Error("AUTH_SECRET is not set — required to sign/verify order links.");
+  const secret = process.env.ORDER_LINK_SECRET;
+  if (!secret) throw new Error("ORDER_LINK_SECRET is not set — required to sign/verify order links.");
   return secret;
 }
 

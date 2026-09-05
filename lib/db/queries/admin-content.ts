@@ -30,7 +30,7 @@ export interface AdminPostDetail {
   title: string;
   excerpt: string | null;
   body: unknown;
-  coverR2Key: string | null;
+  coverStorageKey: string | null;
   coverUrl: string | null;
   status: "draft" | "published";
   author: string | null;
@@ -43,8 +43,8 @@ export interface AdminPostDetail {
 export async function getAdminPostById(id: number): Promise<AdminPostDetail | null> {
   const [row] = await db.select().from(posts).where(eq(posts.id, id)).limit(1);
   if (!row) return null;
-  const { publicUrl } = await import("@/lib/storage/r2");
-  return { ...row, coverUrl: row.coverR2Key ? publicUrl(row.coverR2Key) : null };
+  const { publicUrl } = await import("@/lib/storage/storage");
+  return { ...row, coverUrl: row.coverStorageKey ? publicUrl(row.coverStorageKey) : null };
 }
 
 export async function isPostSlugTaken(slug: string, excludeId?: number): Promise<boolean> {

@@ -1,29 +1,52 @@
 import type { NextConfig } from "next";
 
 /**
- * Derive the R2 public base URL's hostname for next/image remotePatterns.
- * Read from env, never hardcoded — R2_PUBLIC_BASE_URL is set per environment
- * (e.g. https://pub-xxxxxxxx.r2.dev or a custom CDN domain in front of the bucket).
+ * Derive the storage public base URL's hostname for next/image remotePatterns.
+ * Read from env, never hardcoded — STORAGE_PUBLIC_BASE_URL is set per environment (locally the
+ * Supabase stack's `http://127.0.0.1:54421/storage/v1/object/public/<bucket>`; in a deploy the
+ * project's `https://<ref>.supabase.co/...` origin, or a CDN domain in front of it).
  */
-function r2RemotePattern(): NonNullable<NextConfig["images"]>["remotePatterns"] {
-  const base = process.env.R2_PUBLIC_BASE_URL;
-  if (!base) return [];
-
+function storagePublicUrl(): URL | null {
+  const base = process.env.STORAGE_PUBLIC_BASE_URL;
+  if (!base) return null;
   try {
-    const url = new URL(base);
-    return [
-      {
-        protocol: url.protocol.replace(":", "") as "http" | "https",
-        hostname: url.hostname,
-        port: url.port || undefined,
-        pathname: "/**",
-      },
-    ];
+    return new URL(base);
   } catch {
-    // Invalid/placeholder URL at build time (e.g. local dev before R2 is provisioned) — no remote
-    // patterns rather than a hard crash. Real deploys must set a valid R2_PUBLIC_BASE_URL.
-    return [];
+    // Invalid/placeholder URL at build time (e.g. a fresh checkout before Supabase is
+    // provisioned) — degrade rather than hard-crash. Real deploys must set a valid value.
+    return null;
   }
+}
+
+function storageRemotePattern(): NonNullable<NextConfig["images"]>["remotePatterns"] {
+  const url = storagePublicUrl();
+  if (!url) return [];
+  return [
+    {
+      protocol: url.protocol.replace(":", "") as "http" | "https",
+      hostname: url.hostname,
+      port: url.port || undefined,
+      pathname: "/**",
+    },
+  ];
+}
+
+/**
+ * Next.js 16's image optimizer refuses to fetch from any hostname that resolves to a
+ * private/loopback IP (SSRF hardening), independently of and in addition to remotePatterns
+ * matching — it blocks even an explicitly allow-listed `localhost` with the same generic
+ * "url parameter is not allowed" error. The local Supabase stack serves storage from
+ * 127.0.0.1, so the optimizer needs this escape hatch there.
+ *
+ * Keyed off whether the storage host IS actually loopback — NOT off STORAGE_ENDPOINT being set,
+ * which under Supabase is always set (including in production, unlike R2 where the endpoint
+ * override existed only for the local MinIO stand-in). Deriving it from the real hostname keeps
+ * this false in every deployed environment, which is the only safe default.
+ */
+function storageIsLoopback(): boolean {
+  const host = storagePublicUrl()?.hostname;
+  if (!host) return false;
+  return host === "localhost" || host === "::1" || host === "[::1]" || /^127\./.test(host);
 }
 
 const nextConfig: NextConfig = {
@@ -45,15 +68,8 @@ const nextConfig: NextConfig = {
   agentRules: false,
   images: {
     formats: ["image/avif", "image/webp"],
-    remotePatterns: r2RemotePattern(),
-    // Next.js 16's image optimizer refuses to fetch from any hostname that resolves to a
-    // private/loopback IP (SSRF hardening), independent of and in addition to remotePatterns
-    // matching — it blocks even an explicitly allow-listed `localhost` with the same generic
-    // "url parameter is not allowed" error. This only needs to be true for the local MinIO
-    // stand-in for R2 (see docs/LOCAL-R2.md / the README's "Local R2 (MinIO)" section) — a real
-    // deploy sets R2_ACCOUNT_ID instead of R2_ENDPOINT and gets the real, non-loopback R2
-    // hostname, so this stays false (the safe default) in every real environment.
-    dangerouslyAllowLocalIP: Boolean(process.env.R2_ENDPOINT),
+    remotePatterns: storageRemotePattern(),
+    dangerouslyAllowLocalIP: storageIsLoopback(),
   },
 };
 

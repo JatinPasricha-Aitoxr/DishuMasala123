@@ -1,10 +1,15 @@
 "use client";
 
 /**
- * Password reset, both halves (PROMPTS.md Phase 6 item 1): request (no `token` in the URL) and
- * confirm (`?token=...`, from the email lib/email.ts#sendResetPasswordEmail sent). One page
- * rather than two so the email's link and the "forgot password" link both land somewhere sensible
- * without duplicating the shell.
+ * Password reset, both halves (PROMPTS.md Phase 6 item 1): request (the bare URL) and confirm
+ * (`?mode=set`). One page rather than two so the email's link and the "forgot password" link both
+ * land somewhere sensible without duplicating the shell.
+ *
+ * There is no token in the URL any more. Supabase's recovery link goes to /auth/confirm, which
+ * exchanges the single-use `token_hash` for a real recovery session and only then forwards here
+ * with `?mode=set`. So reaching the confirm form at all means Supabase has already authenticated
+ * the visitor — `resetPasswordAction` changes the password of whoever that session belongs to,
+ * and fails outright without one.
  */
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -68,7 +73,7 @@ function RequestForm() {
   );
 }
 
-function ConfirmForm({ token }: { token: string }) {
+function ConfirmForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -81,7 +86,7 @@ function ConfirmForm({ token }: { token: string }) {
   const onSubmit = async (values: ConfirmValues) => {
     setSubmitting(true);
     setError(null);
-    const result = await resetPasswordAction({ token, newPassword: values.newPassword });
+    const result = await resetPasswordAction({ newPassword: values.newPassword });
     setSubmitting(false);
     if (!result.ok) {
       setError(result.error);
@@ -129,11 +134,11 @@ function ConfirmForm({ token }: { token: string }) {
 
 function ResetPasswordInner() {
   const searchParams = useSearchParams();
-  const token = searchParams.get("token");
+  const mode = searchParams.get("mode");
 
   return (
     <div className="mx-auto max-w-sm px-4 py-16 sm:px-6">
-      {token ? <ConfirmForm token={token} /> : <RequestForm />}
+      {mode === "set" ? <ConfirmForm /> : <RequestForm />}
       <p className="mt-6 text-sm text-ink-2">
         <Link href="/login" className="font-medium text-ink underline underline-offset-4">
           Back to sign in

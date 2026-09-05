@@ -10,7 +10,7 @@ import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "../index";
 import { productImages, products, variants } from "../schema";
 import { createHash, randomUUID } from "node:crypto";
-import { buildKey, deleteObject, getObject, putObject, presignUpload } from "@/lib/storage/r2";
+import { buildKey, deleteObject, getObject, putObject, presignUpload } from "@/lib/storage/storage";
 import { processImage } from "@/lib/storage/images";
 import { isSlugTaken, countProductImageReferencesToKey } from "../queries/admin-products";
 
@@ -86,7 +86,7 @@ export async function createProductDb(input: ProductInput): Promise<number> {
 
 /** Updates a product's fields and replaces its variant set (add/update/delete/reorder) in one
  * transaction. Images are managed by separate, dedicated actions (finalize/delete/reorder/setPrimary
- * below) since they involve R2 side effects that don't belong inside this DB transaction. */
+ * below) since they involve storage side effects that don't belong inside this DB transaction. */
 export async function updateProductDb(id: number, input: ProductInput): Promise<void> {
   await db.transaction(async (tx) => {
     await tx
@@ -176,7 +176,7 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_MIME: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 /** Step 1 of the upload flow: a presigned PUT to a temp key. The browser uploads the original
- * bytes straight to R2 with this URL — they never pass through our server on the way in. */
+ * bytes straight to Supabase Storage with this URL — they never pass through our server on the way in. */
 export async function presignProductImageUploadDb(
   productSlug: string,
   contentType: string,
@@ -193,7 +193,7 @@ export async function presignProductImageUploadDb(
 
 /** Step 2: after the browser confirms the presigned PUT succeeded, the server fetches the object
  * back, runs the real `sharp` AVIF/WebP derivative pipeline (same as scripts/migrate-images.ts),
- * uploads every derivative, records the largest WebP as the canonical `r2Key` (next/image handles
+ * uploads every derivative, records the largest WebP as the canonical `storageKey` (next/image handles
  * further format/width negotiation from there — see scripts/migrate-images.ts's identical
  * comment), inserts the `product_images` row (alt text starts empty and MUST be filled in before
  * publish — see publishProductDb), and deletes the temp original. */
@@ -201,7 +201,7 @@ export async function finalizeProductImageUploadDb(
   productId: number,
   productSlug: string,
   tmpKey: string,
-): Promise<{ id: number; r2Key: string; width: number; height: number }> {
+): Promise<{ id: number; storageKey: string; width: number; height: number }> {
   const originalBuffer = await getObject(tmpKey);
   const processed = await processImage(originalBuffer);
 
@@ -237,14 +237,14 @@ export async function finalizeProductImageUploadDb(
     .insert(productImages)
     .values({
       productId,
-      r2Key: canonicalKey,
+      storageKey: canonicalKey,
       alt: "",
       width: canonicalWidth,
       height: canonicalHeight,
       position: nextPosition,
       isPrimary: isFirstImage,
     })
-    .returning({ id: productImages.id, r2Key: productImages.r2Key, width: productImages.width, height: productImages.height });
+    .returning({ id: productImages.id, storageKey: productImages.storageKey, width: productImages.width, height: productImages.height });
 
   return row;
 }
@@ -270,19 +270,19 @@ export async function setPrimaryProductImageDb(productId: number, imageId: numbe
 
 export type DeleteImageResult = { ok: true } | { ok: false; error: string };
 
-/** Deletes a product image row AND its R2 object — but only actually removes the R2 object when
+/** Deletes a product image row AND its storage object — but only actually removes the storage object when
  * no other image row still references the same key (PROMPTS.md's explicit "delete with a real
- * check that nothing else still references that R2 key before removing it"). */
+ * check that nothing else still references that storage key before removing it"). */
 export async function deleteProductImageDb(imageId: number): Promise<DeleteImageResult> {
   const [image] = await db.select().from(productImages).where(eq(productImages.id, imageId)).limit(1);
   if (!image) return { ok: false, error: "Image not found." };
 
   await db.delete(productImages).where(eq(productImages.id, imageId));
 
-  const stillReferenced = await countProductImageReferencesToKey(image.r2Key, imageId);
+  const stillReferenced = await countProductImageReferencesToKey(image.storageKey, imageId);
   if (stillReferenced === 0) {
-    await deleteObject(image.r2Key).catch(() => {
-      // Row is already gone either way — a failed R2 delete leaves an orphaned object, not a
+    await deleteObject(image.storageKey).catch(() => {
+      // Row is already gone either way — a failed storage delete leaves an orphaned object, not a
       // dangling reference, so it's safe to swallow here rather than fail the whole action.
     });
   }

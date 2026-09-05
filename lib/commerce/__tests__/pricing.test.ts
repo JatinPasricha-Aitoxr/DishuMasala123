@@ -23,7 +23,7 @@ const BLUE_500: VariantPricingRow = {
   pricePaise: paise(50000),
   inStock: true,
   stockQty: null,
-  imageR2Key: "products/blue-tea/a.jpg",
+  imageStorageKey: "products/blue-tea/a.jpg",
 };
 const RED_250: VariantPricingRow = {
   variantId: 2,
@@ -37,7 +37,7 @@ const RED_250: VariantPricingRow = {
   pricePaise: paise(25000),
   inStock: true,
   stockQty: 3,
-  imageR2Key: null,
+  imageStorageKey: null,
 };
 const OUT_OF_STOCK: VariantPricingRow = {
   variantId: 3,
@@ -51,7 +51,7 @@ const OUT_OF_STOCK: VariantPricingRow = {
   pricePaise: paise(12000), // price == mrp, no discount chip case
   inStock: false,
   stockQty: null,
-  imageR2Key: null,
+  imageStorageKey: null,
 };
 
 const CATALOG = [BLUE_500, RED_250, OUT_OF_STOCK];

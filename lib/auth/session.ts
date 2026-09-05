@@ -1,6 +1,7 @@
 import "server-only";
 
-import { auth } from "@/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUserByAuthId } from "@/lib/db/queries/users";
 
 export interface SessionUser {
   id: number;
@@ -13,14 +14,57 @@ export interface SessionUser {
  * gate, not the only one"). `middleware.ts` never runs for a server action invoked directly
  * (e.g. a test calling the exported function, or any caller that isn't a page navigation through
  * the matcher), so every one of these functions re-derives the session from the request's own
- * cookies via `auth()` rather than trusting that middleware already ran.
+ * cookies rather than trusting that middleware already ran.
+ *
+ * Two deliberate choices here:
+ *   - `getUser()`, never `getSession()`. `getSession()` returns whatever the cookie claims,
+ *     unverified; `getUser()` revalidates the token against the Auth server. Authorization must
+ *     never be decided from an unverified cookie.
+ *   - the role comes from `public.users`, not from the JWT's `user_role` claim. The claim exists
+ *     for middleware, which cannot reach the database; here the database is reachable and is the
+ *     authority, so a role changed in the admin panel takes effect immediately instead of at the
+ *     next token refresh.
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  const id = Number(session.user.id);
-  if (!Number.isFinite(id)) return null;
-  return { id, role: session.user.role };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+
+  const appUser = await getUserByAuthId(data.user.id);
+  if (!appUser) return null;
+
+  return { id: appUser.id, role: appUser.role };
+}
+
+/**
+ * The cheap, DISPLAY-ONLY session read, for the root layout.
+ *
+ * `getSessionUser()` above costs a network round-trip to the Auth server plus a `public.users`
+ * query — correct for an authorization decision, but far too expensive to pay on every single
+ * page render, and it is paid again on every `revalidatePath()` a server action triggers. This
+ * reads the same identity out of the already-present JWT instead: `getClaims()` verifies the
+ * token's signature locally (caching the JWKS), so it makes no per-render round-trip, and the
+ * `user_role` / `app_user_id` claims are stamped by the access-token hook (migration 0008).
+ *
+ * NEVER use this to authorize anything. A claim can be up to one token-refresh stale, so a
+ * demoted admin would still present `user_role: "admin"` here. It decides what the header shows
+ * and when the cart/wishlist merge fires — nothing more. Every actual gate calls `requireUser()`
+ * or `requireStaffOrAdmin()`, which re-read the authoritative role from the database.
+ */
+export async function getDisplaySessionUser(): Promise<SessionUser | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+
+  const appUserId = typeof claims.app_user_id === "number" ? claims.app_user_id : null;
+  if (appUserId === null) return null;
+
+  const role = claims.user_role;
+  return {
+    id: appUserId,
+    role: role === "staff" || role === "admin" ? role : "customer",
+  };
 }
 
 export type RequireResult = { ok: true; user: SessionUser } | { ok: false; error: "unauthenticated" | "forbidden" };
@@ -32,8 +76,7 @@ export async function requireUser(): Promise<RequireResult> {
   return { ok: true, user };
 }
 
-/** `staff` or `admin` only — the gate behind every `/admin/*` action (Phase 7+, wired now so
- * Phase 6's tests can prove the gate itself works ahead of any real admin page existing). */
+/** `staff` or `admin` only — the gate behind every `/admin/*` action. */
 export async function requireStaffOrAdmin(): Promise<RequireResult> {
   const user = await getSessionUser();
   if (!user) return { ok: false, error: "unauthenticated" };

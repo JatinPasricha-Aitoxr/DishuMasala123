@@ -21,7 +21,28 @@ if (!process.env.DATABASE_URL && existsSync(".env")) {
  *   it succeeds.
  */
 const mockAuth = vi.fn();
-vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: async () => ({
+    auth: {
+      async getUser() {
+        const session = await mockAuth();
+        return session?.user
+          ? { data: { user: { id: `auth-uuid-${session.user.id}` } }, error: null }
+          : { data: { user: null }, error: null };
+      },
+    },
+  }),
+}));
+// Partial mock: only the auth-id lookup the session gate uses is faked, so any other real query
+// in this file's module graph still runs against the real database.
+vi.mock("@/lib/db/queries/users", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/queries/users")>()),
+  async getUserByAuthId() {
+    const session = await mockAuth();
+    if (!session?.user) return null;
+    return { id: Number(session.user.id), role: session.user.role };
+  },
+}));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined, updateTag: () => undefined }));
 
 let dbClient: Client;
@@ -139,7 +160,7 @@ describe("product admin actions — alt text required before publish", () => {
     // Insert a product_images row directly with empty alt text — equivalent to a real upload that
     // hasn't had its alt text filled in yet (finalizeProductImageUploadDb always starts alt as "").
     const { rows: imageRows } = await dbClient.query<{ id: number }>(
-      `insert into product_images (product_id, r2_key, alt, width, height, position, is_primary)
+      `insert into product_images (product_id, storage_key, alt, width, height, position, is_primary)
        values ($1, $2, '', 800, 800, 0, true) returning id`,
       [productId, `products/${slug}/test-image.webp`],
     );

@@ -15,7 +15,7 @@ export interface WishlistCard {
   name: string;
   priceFromPaise: number;
   mrpFromPaise: number;
-  imageR2Key: string | null;
+  imageStorageKey: string | null;
   imageAlt: string | null;
   inStock: boolean;
 }
@@ -45,7 +45,7 @@ export async function getWishlistCards(userId: number): Promise<WishlistCard[]> 
       name: p.name,
       priceFromPaise: cheapest ? cheapest.pricePaise : 0,
       mrpFromPaise: cheapest ? cheapest.mrpPaise : 0,
-      imageR2Key: primaryImage?.r2Key ?? null,
+      imageStorageKey: primaryImage?.storageKey ?? null,
       imageAlt: primaryImage?.alt ?? null,
       inStock: vs.some((v) => v.inStock),
     });

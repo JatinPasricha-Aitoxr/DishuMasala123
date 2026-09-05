@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createUser } from "@/lib/db/mutations/users";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin-core";
 import { getOrderForUserByOrderNumber, getOrdersForUser } from "@/lib/db/queries/orders";
 import { createOrderTransaction } from "@/lib/db/mutations/orders";
 import { computePricing } from "@/lib/commerce/pricing";
@@ -14,7 +14,9 @@ import { getWishlistProductIds } from "@/lib/db/queries/wishlist";
  * Real, DB-backed proof of the rest of PROMPTS.md Phase 6's acceptance criteria (the ones the
  * Playwright specs and tests/unit/auth-session-gate.test.ts don't already cover):
  *
- * - "Passwords are Argon2id; confirm no plaintext or reversible value is ever stored or logged."
+ * - "Confirm no plaintext or reversible password value is ever stored or logged." (Supabase Auth
+ *   is the credential custodian now, so this is checked against `auth.users` AND by asserting
+ *   `public.users` has no password column at all.)
  * - "An anonymous wishlist and cart merge into the account on login without losing items."
  * - "Attempting to read another user's order by id fails."
  *
@@ -61,6 +63,32 @@ afterAll(async () => {
   await dbClient?.end();
 });
 
+/**
+ * Creates a real account the way the application does — through Supabase Auth — and returns the
+ * `public.users` id that migration 0008's `on_auth_user_created` trigger produced for it. This
+ * replaces the old `lib/db/mutations/users#createUser`, which no longer exists because the app
+ * can no longer create a user without an auth identity.
+ */
+async function createTestUser(input: {
+  email: string;
+  name: string;
+  phone: string | null;
+  password: string;
+}): Promise<{ ok: true; userId: number }> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase.auth.admin.createUser({
+    email: input.email,
+    password: input.password,
+    email_confirm: true,
+    user_metadata: { name: input.name, phone: input.phone },
+  });
+  if (error || !data.user) throw new Error(`createTestUser failed: ${error?.message ?? "no user returned"}`);
+
+  const { rows } = await dbClient.query<{ id: number }>(`select id from users where auth_user_id = $1`, [data.user.id]);
+  if (!rows[0]) throw new Error("on_auth_user_created did not create a public.users row — is migration 0008 applied?");
+  return { ok: true, userId: rows[0].id };
+}
+
 function uniqueEmail(label: string): string {
   return `account-sec-${label}-${randomUUID().slice(0, 8)}@example.com`;
 }
@@ -89,24 +117,36 @@ async function makeOrderFor(email: string, userId: number | null) {
   return result;
 }
 
-describe("Argon2id password hashing — no plaintext or reversible value stored or logged", () => {
-  it("stores a real $argon2id$ hash, never the raw password", async () => {
-    const email = uniqueEmail("argon2");
+describe("Credential custody — Supabase Auth owns passwords; this app stores none", () => {
+  it("has no password column on public.users at all", async () => {
+    const { rows } = await dbClient.query<{ column_name: string }>(
+      `select column_name from information_schema.columns where table_schema = 'public' and table_name = 'users'`,
+    );
+    const columns = rows.map((r) => r.column_name);
+    expect(columns).not.toContain("password_hash");
+    expect(columns.filter((c) => c.includes("password"))).toEqual([]);
+  });
+
+  it("stores only a hash in auth.users, never the raw password, and never logs it", async () => {
+    const email = uniqueEmail("credential");
     const rawPassword = "S3cret-Raw-Password-Never-Stored!";
 
-    const result = await createUser({ email, name: "Argon2 Test", phone: null, password: rawPassword });
-    expect(result.ok).toBe(true);
+    await createTestUser({ email, name: "Credential Test", phone: null, password: rawPassword });
 
-    // Independent re-read via raw SQL — not trusting createUser's own return value for this.
-    const { rows } = await dbClient.query<{ password_hash: string }>(`select password_hash from users where email = $1`, [
-      email.toLowerCase(),
-    ]);
+    // Independent re-read via raw SQL against Supabase's own auth schema.
+    const { rows } = await dbClient.query<{ encrypted_password: string }>(
+      `select encrypted_password from auth.users where email = $1`,
+      [email.toLowerCase()],
+    );
     expect(rows).toHaveLength(1);
-    const storedHash = rows[0].password_hash;
+    const storedHash = rows[0].encrypted_password;
 
-    expect(storedHash).toMatch(/^\$argon2id\$/);
+    expect(storedHash).toBeTruthy();
     expect(storedHash).not.toContain(rawPassword);
     expect(storedHash.toLowerCase()).not.toContain("s3cret-raw-password");
+    // Supabase hashes with bcrypt. Assert the shape so a future change to plaintext or a
+    // reversible scheme fails loudly here rather than silently.
+    expect(storedHash).toMatch(/^\$2[aby]\$/);
 
     // Nothing captured in console output (log/warn/error) during this whole test file's run so
     // far contains the raw password string.
@@ -118,7 +158,7 @@ describe("Argon2id password hashing — no plaintext or reversible value stored 
 describe("Wishlist merge — union, never overwrite", () => {
   it("keeps both the account's existing items and the anonymous session's items after login", async () => {
     const email = uniqueEmail("wishlist");
-    const { userId } = (await createUser({ email, name: "Wishlist Test", phone: null, password: "irrelevant-pw-1234" })) as {
+    const { userId } = (await createTestUser({ email, name: "Wishlist Test", phone: null, password: "irrelevant-pw-1234" })) as {
       ok: true;
       userId: number;
     };
@@ -141,7 +181,7 @@ describe("Wishlist merge — union, never overwrite", () => {
 describe("Cart merge — union, never overwrite", () => {
   it("keeps both the account's existing server cart and the anonymous cart's lines after login", async () => {
     const email = uniqueEmail("cart");
-    const { userId } = (await createUser({ email, name: "Cart Test", phone: null, password: "irrelevant-pw-1234" })) as {
+    const { userId } = (await createTestUser({ email, name: "Cart Test", phone: null, password: "irrelevant-pw-1234" })) as {
       ok: true;
       userId: number;
     };
@@ -169,11 +209,11 @@ describe("Order ownership — reading another user's order by id fails", () => {
   it("returns null for account B reading account A's real order by order number", async () => {
     const emailA = uniqueEmail("owner-a");
     const emailB = uniqueEmail("owner-b");
-    const userA = (await createUser({ email: emailA, name: "Owner A", phone: null, password: "irrelevant-pw-1234" })) as {
+    const userA = (await createTestUser({ email: emailA, name: "Owner A", phone: null, password: "irrelevant-pw-1234" })) as {
       ok: true;
       userId: number;
     };
-    const userB = (await createUser({ email: emailB, name: "Owner B", phone: null, password: "irrelevant-pw-1234" })) as {
+    const userB = (await createTestUser({ email: emailB, name: "Owner B", phone: null, password: "irrelevant-pw-1234" })) as {
       ok: true;
       userId: number;
     };
@@ -205,7 +245,7 @@ describe("Role gate against a real DB-backed staff/admin user", () => {
   // through the seed script or through registerAction (which always creates role "customer").
   it("a real staff-role row round-trips through getUserById with role intact", async () => {
     const email = uniqueEmail("staff-role");
-    const created = await createUser({ email, name: "Staff Row Test", phone: null, password: "irrelevant-pw-1234" });
+    const created = await createTestUser({ email, name: "Staff Row Test", phone: null, password: "irrelevant-pw-1234" });
     if (!created.ok) throw new Error("setup failed");
 
     await dbClient.query(`update users set role = 'staff' where id = $1`, [created.userId]);
@@ -217,7 +257,7 @@ describe("Role gate against a real DB-backed staff/admin user", () => {
 
   it("a real admin-role row round-trips through getUserById with role intact", async () => {
     const email = uniqueEmail("admin-role");
-    const created = await createUser({ email, name: "Admin Row Test", phone: null, password: "irrelevant-pw-1234" });
+    const created = await createTestUser({ email, name: "Admin Row Test", phone: null, password: "irrelevant-pw-1234" });
     if (!created.ok) throw new Error("setup failed");
 
     await dbClient.query(`update users set role = 'admin' where id = $1`, [created.userId]);

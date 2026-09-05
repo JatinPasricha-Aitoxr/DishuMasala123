@@ -49,7 +49,7 @@ export interface PricingLine {
   qty: number;
   requestedQty: number;
   lineTotalPaise: Paise;
-  imageR2Key: string | null;
+  imageStorageKey: string | null;
 }
 
 export type PricingIssue =
@@ -240,7 +240,7 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
       qty,
       requestedQty,
       lineTotalPaise: paise(v.pricePaise * qty),
-      imageR2Key: v.imageR2Key,
+      imageStorageKey: v.imageStorageKey,
     });
   }
 

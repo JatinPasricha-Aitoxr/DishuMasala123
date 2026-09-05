@@ -49,7 +49,7 @@ const postSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   excerpt: z.string().trim().max(400).nullable(),
   body: tiptapDocSchema,
-  coverR2Key: z.string().trim().nullable(),
+  coverStorageKey: z.string().trim().nullable(),
   author: z.string().trim().max(100).nullable(),
   seoTitle: z.string().trim().max(70).nullable(),
   seoDescription: z.string().trim().max(200).nullable(),
@@ -63,7 +63,7 @@ function toPostDbInput(parsed: z.infer<typeof postSchema>): PostInput {
     title: parsed.title,
     excerpt: parsed.excerpt || null,
     body: parsed.body,
-    coverR2Key: parsed.coverR2Key || null,
+    coverStorageKey: parsed.coverStorageKey || null,
     author: parsed.author || null,
     seoTitle: parsed.seoTitle || null,
     seoDescription: parsed.seoDescription || null,
@@ -217,7 +217,7 @@ export async function unpublishPageAction(id: number): Promise<AdminResult> {
 }
 
 // -------------------------------------------------------------------------------------------
-// Content images (post cover + inline body images) — same R2 flow as products
+// Content images (post cover + inline body images) — same storage flow as products
 // -------------------------------------------------------------------------------------------
 
 const presignSchema = z.object({ slug: z.string().trim().min(1), contentType: z.enum(["image/jpeg", "image/png", "image/webp"]), contentLength: z.number().int().positive().max(5 * 1024 * 1024) });
@@ -237,7 +237,7 @@ export async function presignContentImageUploadAction(input: z.infer<typeof pres
 
 const finalizeSchema = z.object({ slug: z.string().trim().min(1), tmpKey: z.string().trim().min(1) });
 
-export async function finalizeContentImageUploadAction(input: z.infer<typeof finalizeSchema>): Promise<AdminResult<{ url: string; r2Key: string }>> {
+export async function finalizeContentImageUploadAction(input: z.infer<typeof finalizeSchema>): Promise<AdminResult<{ url: string; storageKey: string }>> {
   const auth = await requireStaff();
   if (!auth.ok) return auth;
   const parsed = finalizeSchema.safeParse(input);

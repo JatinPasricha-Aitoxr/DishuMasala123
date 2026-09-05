@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../index";
 import { settings } from "../schema";
 import { paise, type Paise } from "@/lib/money";
-import { publicUrl } from "@/lib/storage/r2";
+import { publicUrl } from "@/lib/storage/storage";
 
 /** Shape of the `store_address` settings row — matches scripts/seed.ts exactly. Unknown facts the
  * client hasn't supplied yet (line1, pincode, email) are seeded as the literal string "TODO" and
@@ -97,7 +97,7 @@ export async function getMaintenanceMode(): Promise<boolean> {
 }
 
 export interface SiteBrandingAsset {
-  r2Key: string;
+  storageKey: string;
   width: number;
   height: number;
   alt: string;
@@ -117,20 +117,20 @@ export async function getSiteBranding(): Promise<SiteBranding> {
   const value = row?.value as { logo?: SiteBrandingAsset; favicon?: SiteBrandingAsset } | undefined;
 
   return {
-    logo: value?.logo ? { ...value.logo, url: publicUrl(value.logo.r2Key) } : null,
-    favicon: value?.favicon ? { ...value.favicon, url: publicUrl(value.favicon.r2Key) } : null,
+    logo: value?.logo ? { ...value.logo, url: publicUrl(value.logo.storageKey) } : null,
+    favicon: value?.favicon ? { ...value.favicon, url: publicUrl(value.favicon.storageKey) } : null,
   };
 }
 
 export interface HomepageBannerMobileRow {
-  r2Key: string;
+  storageKey: string;
   width: number;
   height: number;
 }
 
 export interface HomepageBannerRow {
   slot: string;
-  r2Key: string;
+  storageKey: string;
   width: number;
   height: number;
   alt: string;
@@ -157,8 +157,8 @@ async function getBannerSet(settingsKey: string): Promise<HomepageBanner[]> {
   if (!Array.isArray(value)) return [];
   return value.map((banner) => ({
     ...banner,
-    url: publicUrl(banner.r2Key),
-    mobile: banner.mobile ? { ...banner.mobile, url: publicUrl(banner.mobile.r2Key) } : undefined,
+    url: publicUrl(banner.storageKey),
+    mobile: banner.mobile ? { ...banner.mobile, url: publicUrl(banner.mobile.storageKey) } : undefined,
   }));
 }
 
@@ -193,7 +193,7 @@ export async function getCollectionPageBanner(collectionSlug: string): Promise<H
 }
 
 export interface SectionImage {
-  r2Key: string;
+  storageKey: string;
   width: number;
   height: number;
   alt: string;
@@ -207,7 +207,7 @@ export async function getRedTeaLifestyleImage(): Promise<SectionImage | null> {
   const [row] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, "red_tea_lifestyle_image")).limit(1);
   const value = row?.value as Omit<SectionImage, "url"> | undefined;
   if (!value) return null;
-  return { ...value, url: publicUrl(value.r2Key) };
+  return { ...value, url: publicUrl(value.storageKey) };
 }
 
 /** Every settings row the admin settings page (Phase 7 item 6) reads and edits, in one round

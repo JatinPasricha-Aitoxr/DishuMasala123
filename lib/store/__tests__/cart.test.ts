@@ -43,7 +43,7 @@ function pricingLine(overrides: Partial<PricingLine> = {}): PricingLine {
     qty: 1,
     requestedQty: 1,
     lineTotalPaise: paise(50000),
-    imageR2Key: null,
+    imageStorageKey: null,
     ...overrides,
   };
 }

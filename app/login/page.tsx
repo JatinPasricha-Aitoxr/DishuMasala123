@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * Login (PROMPTS.md Phase 6 item 1). Calls next-auth's own `signIn("credentials", ...)` directly —
- * auth.ts's Credentials `authorize` is where rate limiting, Argon2id verification and the
- * generic-error/no-enumeration discipline actually live (see that file's doc comment); this page
- * is just the form.
+ * Login (PROMPTS.md Phase 6 item 1). Posts to the `loginAction` server action — that is where
+ * rate limiting, the Supabase password check and the generic-error/no-enumeration discipline
+ * actually live (see lib/actions/auth.ts's doc comment); this page is just the form. The session
+ * cookie is set server-side by the action, so nothing Supabase-shaped runs in the browser.
  */
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signIn } from "next-auth/react";
+import { loginAction } from "@/lib/actions/auth";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -42,13 +42,13 @@ function LoginFormInner() {
   const onSubmit = async (values: LoginValues) => {
     setSubmitting(true);
     setError(null);
-    const result = await signIn("credentials", { ...values, redirect: false });
+    const result = await loginAction(values);
     setSubmitting(false);
-    // NextAuth returns a generic "CredentialsSignin" error code for every authorize() failure —
-    // wrong password, unregistered email, or a rate-limit rejection all render identically here,
-    // which is the point (PROMPTS.md Phase 6 item 1: never reveal whether an email exists).
-    if (result?.error) {
-      setError(GENERIC_LOGIN_ERROR);
+    // The action returns one generic message for every failure — wrong password, unregistered
+    // email, or a rate-limit rejection all render identically here, which is the point
+    // (PROMPTS.md Phase 6 item 1: never reveal whether an email exists).
+    if (!result.ok) {
+      setError(result.error || GENERIC_LOGIN_ERROR);
       return;
     }
     router.push(callbackUrl);

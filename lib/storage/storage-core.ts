@@ -1,39 +1,37 @@
 /**
- * The actual Cloudflare R2 (S3-compatible) client implementation. Deliberately has no
- * `import "server-only"` of its own — it's consumed two ways:
- *   - lib/storage/r2.ts re-exports it WITH the server-only guard, for use from the Next.js app
- *     (server actions, route handlers) where accidental client-bundle inclusion must hard-fail.
+ * The Supabase Storage client, spoken to over its S3-compatible protocol rather than
+ * `@supabase/supabase-js`'s storage helper. Supabase exposes every bucket at
+ * `<project>/storage/v1/s3`, so the AWS S3 SDK talks to it directly — which means the presigned
+ * upload path, the `sharp` derivative pipeline and the key convention below are all the real
+ * thing, unchanged from when this project ran on Cloudflare R2, instead of a second parallel
+ * implementation. Only the endpoint, credentials and public base URL differ per environment.
+ *
+ * Deliberately has no `import "server-only"` of its own — it's consumed two ways:
+ *   - lib/storage/storage.ts re-exports it WITH the server-only guard, for use from the Next.js
+ *     app (server actions, route handlers) where accidental client-bundle inclusion must
+ *     hard-fail.
  *   - scripts/migrate-images.ts imports this file directly, since standalone tsx/Node scripts
  *     have no "react-server" bundler condition and the `server-only` package throws
  *     unconditionally outside of it (see lib/db/script-client.ts for the same pattern on the DB
  *     side).
- * Never import this file from app/ or components/ — use lib/storage/r2.ts there instead.
+ * Never import this file from app/ or components/ — use lib/storage/storage.ts there instead.
  */
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const accountId = process.env.R2_ACCOUNT_ID;
-const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-const bucket = process.env.R2_BUCKET;
-const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL;
-/**
- * Optional override for the S3-compatible endpoint. Local dev/test points this at the MinIO
- * substitute (see docs/LOCAL-R2.md and the "Local R2 (MinIO)" README section) — e.g.
- * `http://localhost:9010` — instead of the real `https://<accountId>.r2.cloudflarestorage.com`.
- * Any real deploy leaves this unset and gets the genuine R2 endpoint. `R2_FORCE_PATH_STYLE=1`
- * goes with it: MinIO (and most non-R2 S3-compatible stores) need path-style addressing
- * (`http://host/bucket/key`) rather than R2/AWS's virtual-hosted style (`http://bucket.host/key`).
- */
-const endpointOverride = process.env.R2_ENDPOINT;
-const forcePathStyle = process.env.R2_FORCE_PATH_STYLE === "1";
+const endpoint = process.env.STORAGE_ENDPOINT;
+const region = process.env.STORAGE_REGION || "local";
+const accessKeyId = process.env.STORAGE_ACCESS_KEY_ID;
+const secretAccessKey = process.env.STORAGE_SECRET_ACCESS_KEY;
+const bucket = process.env.STORAGE_BUCKET;
+const publicBaseUrl = process.env.STORAGE_PUBLIC_BASE_URL;
 
 function assertConfigured(): void {
-  if (!accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl || (!accountId && !endpointOverride)) {
+  if (!endpoint || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) {
     throw new Error(
-      "R2 is not configured. Set R2_ACCOUNT_ID (or R2_ENDPOINT for a local/self-hosted " +
-        "S3-compatible substitute), R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET and " +
-        "R2_PUBLIC_BASE_URL (see .env.example).",
+      "Supabase Storage is not configured. Set STORAGE_ENDPOINT, STORAGE_REGION, " +
+        "STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY, STORAGE_BUCKET and " +
+        "STORAGE_PUBLIC_BASE_URL (see .env.example).",
     );
   }
 }
@@ -44,16 +42,19 @@ function getClient(): S3Client {
   assertConfigured();
   if (!cachedClient) {
     cachedClient = new S3Client({
-      region: "auto",
-      endpoint: endpointOverride || `https://${accountId}.r2.cloudflarestorage.com`,
-      forcePathStyle,
+      region,
+      endpoint,
+      // Supabase's S3 gateway addresses objects as `<endpoint>/<bucket>/<key>` and does not
+      // support AWS/R2-style virtual-hosted buckets, so this is always on — not an env toggle
+      // the way it had to be under R2 (real R2 = virtual-hosted, local MinIO = path-style).
+      forcePathStyle: true,
       credentials: { accessKeyId: accessKeyId!, secretAccessKey: secretAccessKey! },
     });
   }
   return cachedClient;
 }
 
-export type R2Prefix = "products" | "reviews" | "posts" | "brand" | "banners" | "sections";
+export type StoragePrefix = "products" | "reviews" | "posts" | "brand" | "banners" | "sections";
 
 /**
  * Key convention (CLAUDE.md §6 / PROMPTS Phase 0 item 7):
@@ -68,7 +69,7 @@ export type R2Prefix = "products" | "reviews" | "posts" | "brand" | "banners" | 
  * `variant` lets a caller disambiguate multiple derivatives of the same source image (e.g. a
  * width) without breaking the base convention — the hash still identifies the source content.
  */
-export function buildKey(prefix: R2Prefix, id: string | number, hash: string, ext: string, variant?: string): string {
+export function buildKey(prefix: StoragePrefix, id: string | number, hash: string, ext: string, variant?: string): string {
   const cleanExt = ext.replace(/^\./, "");
   const base = variant ? `${hash}-${variant}` : hash;
   return `${prefix}/${id}/${base}.${cleanExt}`;
@@ -86,12 +87,12 @@ export async function putObject(key: string, body: Uint8Array | Buffer, contentT
 }
 
 /**
- * Reads an object back out of R2 — used by the admin image-upload flow (app/admin/products'
- * finalizeProductImageUpload et al.): the browser PUTs the original file straight to R2 via a
- * presigned URL (bytes never pass through our server on the way in), then the server fetches it
- * back here to run the real `sharp` derivative pipeline, exactly as PROMPTS.md Phase 8 item 1
- * requires ("drag-and-drop upload straight to R2 via a presigned URL ... sharp derivatives
- * generated server-side").
+ * Reads an object back out of storage — used by the admin image-upload flow (app/admin/products'
+ * finalizeProductImageUpload et al.): the browser PUTs the original file straight to the bucket
+ * via a presigned URL (bytes never pass through our server on the way in), then the server
+ * fetches it back here to run the real `sharp` derivative pipeline, exactly as PROMPTS.md Phase 8
+ * item 1 requires ("drag-and-drop upload straight to [storage] via a presigned URL ... sharp
+ * derivatives generated server-side").
  */
 export async function getObject(key: string): Promise<Buffer> {
   assertConfigured();
@@ -114,9 +115,10 @@ export interface PresignUploadOptions {
   contentType: string;
   /**
    * Exact byte size of the file being uploaded. A presigned PUT signs and enforces the
-   * Content-Length header exactly — S3/R2 reject a request whose body length doesn't match — so
-   * this must be the real size (e.g. `File.size` in the browser), not a maximum. Enforce a
-   * maximum by rejecting `contentLength > MAX_UPLOAD_BYTES` before signing, as below.
+   * Content-Length header exactly — S3-compatible stores reject a request whose body length
+   * doesn't match — so this must be the real size (e.g. `File.size` in the browser), not a
+   * maximum. Enforce a maximum by rejecting `contentLength > MAX_UPLOAD_BYTES` before signing,
+   * as below.
    */
   contentLength: number;
   expiresInSeconds?: number;
@@ -143,6 +145,11 @@ export async function presignUpload(opts: PresignUploadOptions): Promise<{ url: 
   return { url, key: opts.key };
 }
 
+/**
+ * The bucket is public (supabase/config.toml's `[storage.buckets.dishu-media] public = true`), so
+ * STORAGE_PUBLIC_BASE_URL is the `/storage/v1/object/public/<bucket>` base and the key appends
+ * straight onto it — the same shape R2's public bucket URL had.
+ */
 export function publicUrl(key: string): string {
   assertConfigured();
   return `${publicBaseUrl!.replace(/\/$/, "")}/${key}`;

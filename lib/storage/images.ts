@@ -1,5 +1,5 @@
 // No "server-only" guard here: this is a pure sharp image-processing pipeline that touches no
-// secrets or database, so — unlike lib/storage/r2.ts — there's nothing environment-sensitive to
+// secrets or database, so — unlike lib/storage/storage.ts — there's nothing environment-sensitive to
 // gate. It's imported both from the Next.js app and directly from scripts/migrate-images.ts.
 import sharp from "sharp";
 

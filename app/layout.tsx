@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { AccountSync } from "@/components/auth/AccountSync";
+import { getDisplaySessionUser } from "@/lib/auth/session";
 import "./globals.css";
 
 // Fraunces is a genuinely variable Google font (wght 100–900 plus an optical-size axis) — loading
@@ -40,7 +41,13 @@ export const metadata: Metadata = {
     "Premium organic Indian spices and herbal teas from Dishu Food and Beverages, including the colour-changing Blue Tea.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Resolved server-side so the header, the wishlist toggle and the cart/wishlist merge all see
+  // the same session without any Supabase client running in the browser. Deliberately the cheap
+  // claims-only read: this runs on every render (including every revalidatePath a server action
+  // triggers) and is display state, never an authorization decision — see its doc comment.
+  const sessionUser = await getDisplaySessionUser();
+
   return (
     <html lang="en-IN" className={`${fraunces.variable} ${inter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-bg text-ink">
@@ -50,7 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
-        <SessionProvider>
+        <SessionProvider user={sessionUser ? { id: String(sessionUser.id), role: sessionUser.role } : null}>
           <ToastProvider>
             <AccountSync />
             <Header />

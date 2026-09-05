@@ -39,7 +39,7 @@ export interface OrderItem {
   unitPricePaise: Paise;
   qty: number;
   lineTotalPaise: Paise;
-  imageR2Key: string | null;
+  imageStorageKey: string | null;
 }
 
 export interface Order {

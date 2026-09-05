@@ -5,7 +5,7 @@ import { unstable_cache } from "next/cache";
 import { db } from "../index";
 import { collections, productImages, products, variants } from "../schema";
 import { paise } from "@/lib/money";
-import { publicUrl } from "@/lib/storage/r2";
+import { publicUrl } from "@/lib/storage/storage";
 import type { ProductCardData } from "@/types/catalog";
 import {
   buildShopOrderBy,
@@ -90,7 +90,7 @@ async function fetchShopPage(filters: ShopFilters): Promise<ShopPage> {
         (
           select json_agg(
             json_build_object(
-              'r2Key', ${productImages.r2Key}, 'alt', ${productImages.alt},
+              'storageKey', ${productImages.storageKey}, 'alt', ${productImages.alt},
               'width', ${productImages.width}, 'height', ${productImages.height}
             )
             order by ${productImages.isPrimary} desc, ${productImages.position}
@@ -137,7 +137,7 @@ async function fetchShopPage(filters: ShopFilters): Promise<ShopPage> {
       mrpPaise: paise(v.mrpPaise),
       pricePaise: paise(v.pricePaise),
     })),
-    images: r.imagesJson.map((img) => ({ url: publicUrl(img.r2Key), alt: img.alt, width: img.width, height: img.height })),
+    images: r.imagesJson.map((img) => ({ url: publicUrl(img.storageKey), alt: img.alt, width: img.width, height: img.height })),
   }));
 
   return {
@@ -162,7 +162,7 @@ interface VariantJsonRow {
 }
 
 interface ImageJsonRow {
-  r2Key: string;
+  storageKey: string;
   alt: string;
   width: number;
   height: number;

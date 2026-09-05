@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { registerConfirmedCustomer } from "./_helpers/auth";
 
 /**
  * Real proof of PROMPTS.md Phase 6's acceptance criterion: "/account and /admin are unreachable
@@ -15,17 +16,13 @@ test("/account and /admin redirect to /login when signed out", async ({ page }) 
   await expect(page).toHaveURL(/\/login/);
 });
 
-test("/admin is unreachable for a signed-in customer", async ({ page }) => {
+test("/admin is unreachable for a signed-in customer", async ({ page, request }) => {
   const suffix = Date.now();
   const email = `e2e-guard-${suffix}@example.com`;
   const password = "guard-test-password-1";
 
-  await page.goto("/register");
-  await page.getByLabel("Name").fill("Guard Tester");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/login\?registered=1/);
+  await registerConfirmedCustomer(page, request, { name: "Guard Tester", email, password });
+  await page.goto("/login");
 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);

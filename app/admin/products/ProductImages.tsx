@@ -25,7 +25,7 @@ interface UploadState {
 }
 
 /**
- * Drag-and-drop image upload straight to R2 via a presigned URL, drag-to-reorder, per-image alt
+ * Drag-and-drop image upload straight to Supabase Storage via a presigned URL, drag-to-reorder, per-image alt
  * text (required before publish — enforced server-side in publishProductDb), set-primary, and
  * delete (PROMPTS.md Phase 8 item 1).
  */

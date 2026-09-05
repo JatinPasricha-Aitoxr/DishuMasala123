@@ -1,6 +1,6 @@
 /**
  * Uploads the client-supplied Blue Tea collection-page hero banner (data/banners/banner blue
- * tea.png, plus a portrait crop for mobile) to R2 and saves `settings.blue_tea_page_banner` —
+ * tea.png, plus a portrait crop for mobile) to Supabase Storage and saves `settings.blue_tea_page_banner` —
  * rendered at the top of /collections/blue-tea, above the existing collection header. Same
  * "invent nothing" exception as scripts/migrate-homepage-banners.ts (see that file's header and
  * CLAUDE.md §8's 2026-08-28 note) — the image carries the client's own marketing text baked into

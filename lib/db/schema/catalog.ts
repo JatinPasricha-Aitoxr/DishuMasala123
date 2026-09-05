@@ -49,7 +49,7 @@ export const products = pgTable("products", {
 export const productImages = pgTable("product_images", {
   id: integer().generatedAlwaysAsIdentity().primaryKey(),
   productId: integer("product_id").notNull().references(() => products.id, { onDelete: "cascade" }),
-  r2Key: text("r2_key").notNull(),
+  storageKey: text("storage_key").notNull(),
   alt: text().notNull(),
   width: integer().notNull(),
   height: integer().notNull(),

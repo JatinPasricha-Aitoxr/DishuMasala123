@@ -37,7 +37,7 @@ the client cannot run their business. Treat it as a first-class product, not a C
 | Layer | Choice | Notes |
 |---|---|---|
 | Framework | **Next.js 15+, App Router, TypeScript strict** | Server Components by default; `"use client"` only where interaction demands it. |
-| Database | **Neon Postgres** | Plain Postgres. Branch per migration in dev. |
+| Database | **Supabase Postgres** | Plain Postgres, reached with `pg` (no Neon serverless driver, no wsproxy sidecar). App uses the Supavisor **transaction** pooler; `drizzle-kit` uses the direct connection. |
 | ORM | **Drizzle ORM** + `drizzle-kit` migrations | SQL-first, typed. Migrations are checked in and never hand-edited after being applied. |
 | Styling | **Tailwind CSS v4**, CSS-first `@theme` | Tokens live in CSS variables (§5). No colour literals in components. |
 | UI primitives | Radix UI in a **local** `components/ui` | No heavy component library. |
@@ -45,8 +45,8 @@ the client cannot run their business. Treat it as a first-class product, not a C
 | State | **Zustand** for cart + wishlist (localStorage-persisted) | Server is always the price authority (§7.5). |
 | Validation | **Zod** on every input, every route handler, every server action | |
 | Forms | `react-hook-form` + Zod resolver | |
-| Auth | **Auth.js v5 (NextAuth)**, credentials + Argon2id hashes, role-based sessions | One `users` table, `role` in `customer` / `staff` / `admin`. |
-| File storage | **Cloudflare R2** via the S3 SDK, presigned uploads, `sharp` for derivatives | Zero egress fees. Portable to any S3 provider. |
+| Auth | **Supabase Auth** (email + password), role-based | Identity in `auth.users`; the app's own `public.users` row (integer PK, `role` in `customer`/`staff`/`admin`) is linked by `auth_user_id` and created by the `on_auth_user_created` trigger. No Supabase client is ever built in the browser — every auth flow is a server action. |
+| File storage | **Supabase Storage** via its S3-compatible gateway, presigned uploads, `sharp` for derivatives | Same S3 SDK code path as any S3 provider — only endpoint/credentials differ. |
 | Email | **Resend** + **React Email** templates | All transactional mail. |
 | Payments | **Razorpay** — Orders API, server-side, HMAC verified | Plus COD. |
 | Logistics | **Shiprocket** — serviceability, order push, tracking | |
@@ -58,8 +58,15 @@ the client cannot run their business. Treat it as a first-class product, not a C
 Node 20+. Package manager: pnpm.
 
 **Never** introduce: PHP or anything WordPress-shaped, a second CSS framework,
-styled-components, Redux, Prisma, a headless CMS, an auth SaaS, an admin-panel framework
+styled-components, Redux, Prisma, a headless CMS, an admin-panel framework
 (no Retool/Refine/AdminJS — we build it), or any paid service not listed above.
+
+**Amended (2026-09-04, client decision):** the original text banned "an auth SaaS" and fixed the
+database as Neon and storage as Cloudflare R2. The client chose to move the database, auth and
+file storage to **Supabase**, and reaffirmed that choice after the conflict with this section was
+flagged. The ban on an auth SaaS therefore no longer applies to Supabase Auth specifically; it
+still applies to adding *any other* auth provider on top. See §12's 2026-09-04 log entry for what
+this cost and what behaviour changed.
 
 ---
 
@@ -72,9 +79,9 @@ Staff  ──/admin─────►│  RSC + server actions + routes │
                      └────┬───────────┬───────────┬────┘
                          │           │           │
               Drizzle ────┤           │           ──── Razorpay  (orders, verify, webhook)
-          Neon Postgres  │           │           ──── Shiprocket (pincode, push, track)
+      Supabase Postgres  │           │           ──── Shiprocket (pincode, push, track)
                          │           │           ──── Resend     (order + auth email)
-                         │           ─────────────┴─── Cloudflare R2 (images)
+                         │           ─────────────┴─── Supabase Storage (images)
                          ── single source of truth for catalogue, orders, content
 ```
 
@@ -231,8 +238,10 @@ admin tables, admin dialogs.
 Drizzle, in `lib/db/schema/`, one file per domain. Snake_case columns, `timestamptz`, integer paise.
 
 ```
-users              id, email(uniq), phone, name, password_hash, role(customer|staff|admin),
-                   email_verified_at, last_login_at, created_at, updated_at
+users              id, auth_user_id(uuid, uniq -> auth.users.id), email(uniq), phone, name,
+                   role(customer|staff|admin), email_verified_at, last_login_at, created_at,
+                   updated_at
+                   -- no password column: Supabase Auth is the sole credential custodian
 addresses          id, user_id, label, name, phone, line1, line2, city, state, pincode,
                    is_default, created_at
 collections        id, slug(uniq), title, tagline, priority(int), accent_token, position,
@@ -240,7 +249,7 @@ collections        id, slug(uniq), title, tagline, priority(int), accent_token, 
 products           id, slug(uniq), name, collection_id, short_description, description,
                    ingredients, brew_guide, tags(text[]), option_label, priority(int),
                    status(draft|published), seo_title, seo_description, created_at, updated_at
-product_images     id, product_id, r2_key, alt, width, height, position, is_primary
+product_images     id, product_id, storage_key, alt, width, height, position, is_primary
 variants           id, product_id, sku(uniq), option_value, mrp_paise, price_paise,
                    weight_grams, in_stock, stock_qty(nullable), position
 coupons            id, code(uniq), kind(percent|fixed), value, min_spend_paise,
@@ -255,14 +264,14 @@ orders             id, order_number(uniq), user_id(nullable), email, phone,
                    billing_address(jsonb), shiprocket_order_id, awb, courier, tracking_url,
                    customer_note, staff_note, placed_at, created_at, updated_at
 order_items        id, order_id, variant_id(nullable), product_name, option_value, sku,
-                   mrp_paise, unit_price_paise, qty, line_total_paise, image_r2_key
+                   mrp_paise, unit_price_paise, qty, line_total_paise, image_storage_key
 reviews            id, product_id, user_id(nullable), order_id(nullable), author_name, email,
                    rating(1-5), title, body, status(pending|approved|rejected),
                    verified_buyer, created_at, moderated_at, moderated_by
-review_photos      id, review_id, r2_key, position
+review_photos      id, review_id, storage_key, position
 wishlist_items     id, user_id, product_id, created_at   (uniq user_id+product_id)
 posts              id, slug(uniq), kind(blog|recipe), title, excerpt, body(jsonb tiptap),
-                   cover_r2_key, status(draft|published), author, published_at,
+                   cover_storage_key, status(draft|published), author, published_at,
                    seo_title, seo_description, related_product_ids(int[])
 pages              id, slug(uniq), title, body(jsonb), status, updated_at
 newsletter_subs    id, email(uniq), confirmed_at, source, created_at
@@ -328,9 +337,9 @@ and no quantity is ever shown. Only when a real count exists and is under 10 may
 
 ## 8. Content, imagery and claims
 
-- **Images live in R2**, never in `/public` and never hot-linked from the old site. A migration
+- **Images live in Supabase Storage**, never in `/public` and never hot-linked from the old site. A migration
   script pulls the existing packshots off `dishumasala.com/wp-content/uploads/`, generates AVIF/WebP
-  derivatives with `sharp`, uploads to R2, and records keys, dimensions and alt text in
+  derivatives with `sharp`, uploads to Supabase Storage, and records keys, dimensions and alt text in
   `product_images`. This must run before the old site is decommissioned.
 - Lifestyle and brew imagery is **AI-generated placeholder** for launch. Every placeholder is
   listed in `PLACEHOLDERS.md` with its slot, aspect ratio and the real photo it stands in for, and
@@ -368,7 +377,7 @@ gradient except a hairline in the sidebar header.
 
 Scope: dashboard (today's orders, revenue, low stock, pending reviews) · orders (filterable table,
 detail view, status transitions, Shiprocket dispatch, resend invoice, refund note) · products and
-variants (create/edit, drag-to-order images with R2 upload, pricing, stock, priority, SEO fields,
+variants (create/edit, drag-to-order images uploaded to Supabase Storage, pricing, stock, priority, SEO fields,
 draft/publish) · collections · coupons · reviews moderation queue · customers (with order history) ·
 posts and pages (Tiptap) · settings.
 
@@ -388,16 +397,25 @@ failure is not.
 
 ## 10. Deployment
 
-Storefront and admin are one Next.js app on **Vercel**. Postgres on **Neon**, images on **R2**,
-mail via **Resend**. Keep `output: "standalone"` on and use no Vercel-only API, so the same build
+Storefront and admin are one Next.js app on **Vercel**. Postgres, auth and images all on
+**Supabase** (one project), mail via **Resend**. Keep `output: "standalone"` on and use no Vercel-only API, so the same build
 runs under PM2 behind Nginx on a VPS if the client ever wants to move — document that path in
 `docs/DEPLOY.md`.
 
 Env (`.env.example`, every line commented, no `NEXT_PUBLIC_` on any secret):
-`DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
-`R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`, `RESEND_API_KEY`, `EMAIL_FROM`,
+`DATABASE_URL`, `DIRECT_DATABASE_URL`, `DATABASE_POOL_MAX`, `SUPABASE_URL`,
+`SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `STORAGE_ENDPOINT`, `STORAGE_REGION`,
+`STORAGE_ACCESS_KEY_ID`, `STORAGE_SECRET_ACCESS_KEY`, `STORAGE_BUCKET`,
+`STORAGE_PUBLIC_BASE_URL`, `ORDER_LINK_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`,
 `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `SHIPROCKET_EMAIL`,
 `SHIPROCKET_PASSWORD`, `NEXT_PUBLIC_SITE_URL`.
+
+Not even the Supabase *publishable* key carries a `NEXT_PUBLIC_` prefix, because this app never
+constructs a Supabase client in the browser (`lib/supabase/config.ts` explains why). Two settings
+live in the Supabase dashboard rather than in env and are easy to miss on a new project — the
+**access-token hook** (Auth → Hooks, pointed at `public.custom_access_token_hook`) and the
+**allowed redirect URL** `<site>/auth/confirm`. Without the first, `middleware.ts` sees no
+`user_role` claim and locks staff out of `/admin`. `.env.example` carries both as a checklist.
 
 ### SEO and migration
 The old site is ranked, so keep its URL shapes: `/product/<slug>/` and `/collections/<slug>/`, with
@@ -428,6 +446,48 @@ canonicals, per-page OG images, and JSON-LD for Organization, BreadcrumbList, Pr
 ---
 
 ## 12. Working style for Claude Code
+
+**Logged migration (2026-09-04, client decision): Neon + Auth.js + Cloudflare R2 → Supabase.**
+The client asked to move the database to Supabase and, when offered a database-only swap, chose to
+move auth and file storage too. The conflict with §2's "fixed, do not substitute" table and its
+no-auth-SaaS rule was flagged first and the choice reaffirmed; §2 now records the amendment. What
+this actually changed, so nobody has to rediscover it:
+
+- **Database.** `@neondatabase/serverless` + `ws` are gone; `lib/db/index.ts` and
+  `lib/db/script-client.ts` now share one `pg` driver. The `ghcr.io/neondatabase/wsproxy` sidecar
+  local dev needed is gone with them. Nothing may call Drizzle's `.prepare()` — transaction-mode
+  pooling cannot carry server-side prepared statements. Migrations run against
+  `DIRECT_DATABASE_URL`, never the pooler.
+- **Storage.** `lib/storage/r2*.ts` → `lib/storage/storage*.ts`, `R2_*` env → `STORAGE_*`, and the
+  four `*r2_key*` columns → `*storage_key*` (migration 0006). Supabase Storage is addressed over
+  its S3 gateway, so the presigned-upload and `sharp`-derivative pipeline is unchanged code.
+  `forcePathStyle` is now always on, and `next.config.ts`'s `dangerouslyAllowLocalIP` is derived
+  from whether the storage host is *actually* loopback — not from `STORAGE_ENDPOINT` being set,
+  which under Supabase is always true including in production.
+- **Auth.** `auth.ts`, `auth.config.ts`, `lib/auth/password.ts`, `app/api/auth/[...nextauth]/` and
+  `lib/tokens.ts` are all deleted, along with `next-auth` and `@node-rs/argon2`. `public.users`
+  keeps its integer primary key (every FK in `addresses`, `orders`, `reviews`, `wishlist_items` and
+  `audit_log` depends on it) and gains `auth_user_id` → `auth.users.id`; `password_hash` is dropped
+  outright. Migration 0008 adds the `on_auth_user_created` trigger and the
+  `custom_access_token_hook` that stamps `user_role` into the JWT.
+- **Two gates, unchanged in principle.** `middleware.ts` reads `user_role` from the JWT claim
+  because it cannot import `lib/db`; `lib/auth/session.ts` re-reads the role from `public.users`,
+  so a role changed in the admin panel takes effect immediately rather than at the next token
+  refresh. A test pins that a stale admin claim cannot elevate.
+- **What was genuinely lost.** The hand-built timing-equalisation burns are gone — they hid a fast
+  "no such user" DB miss behind a slow Argon2 verify, and Supabase answers over the network on its
+  own timing. The no-enumeration discipline and the per-email rate limiting in `lib/rate-limit.ts`
+  are both KEPT (Supabase's own limits are per-IP only).
+- **Behaviour change to be aware of.** `enable_confirmations = true` means a new account cannot
+  sign in until its email is confirmed. Under Auth.js an unverified user could sign in and was
+  merely nudged to verify. This was chosen to keep the verification flow real rather than
+  vestigial; revisit it if the client wants immediate sign-in.
+- **Not a browser client.** No Supabase client is constructed client-side, so no Supabase key is
+  inlined into the bundle and §3.3's no-`NEXT_PUBLIC_`-secrets rule holds unchanged. `useSession()`
+  is now this project's own context (`components/providers/SessionProvider.tsx`), fed from the
+  server in `app/layout.tsx`. If a feature ever needs a browser-side Supabase client, that is the
+  moment to revisit the rule deliberately.
+
 
 - Work strictly one phase at a time (`PROMPTS.md`). Do not scaffold future phases early.
 - Open each phase by restating its acceptance criteria; close it by self-checking against them and

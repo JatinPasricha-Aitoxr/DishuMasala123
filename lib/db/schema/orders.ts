@@ -98,7 +98,7 @@ export const orderItems = pgTable("order_items", {
   unitPricePaise: integer("unit_price_paise").notNull(),
   qty: integer().notNull(),
   lineTotalPaise: integer("line_total_paise").notNull(),
-  imageR2Key: text("image_r2_key"),
+  imageStorageKey: text("image_storage_key"),
 }, (t) => [
   index("order_items_order_id_idx").on(t.orderId),
 ]);

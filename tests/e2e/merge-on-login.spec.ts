@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { registerConfirmedCustomer } from "./_helpers/auth";
 
 /**
  * Real proof of PROMPTS.md Phase 6's acceptance criterion: "An anonymous wishlist and cart merge
@@ -11,7 +12,7 @@ import { test, expect } from "@playwright/test";
 const BLUE_TEA = "/product/premium-herbal-blue-tea-loose";
 const RED_TEA = "/product/premium-herbal-red-tea-loose";
 
-test("anonymous cart + wishlist merge into the account on login", async ({ page }) => {
+test("anonymous cart + wishlist merge into the account on login", async ({ page, request }) => {
   // ---- Populate anonymous cart + wishlist -------------------------------------------------
   await page.goto(BLUE_TEA);
   await page.getByRole("button", { name: "Add to cart" }).click();
@@ -39,12 +40,8 @@ test("anonymous cart + wishlist merge into the account on login", async ({ page 
   const email = `e2e-merge-${suffix}@example.com`;
   const password = "merge-test-password-1";
 
-  await page.goto("/register");
-  await page.getByLabel("Name").fill("Merge Tester");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/login\?registered=1/);
+  await registerConfirmedCustomer(page, request, { name: "Merge Tester", email, password });
+  await page.goto("/login");
 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);

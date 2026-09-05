@@ -18,7 +18,7 @@ export interface SubmitReviewInput {
   rating: number;
   title: string | null;
   body: string;
-  /** R2 keys already uploaded via app/api/reviews/upload/route.ts, in display order. */
+  /** storage keys already uploaded via app/api/reviews/upload/route.ts, in display order. */
   photoR2Keys: string[];
   ipHash: string | null;
 }
@@ -66,7 +66,7 @@ export async function submitReview(input: SubmitReviewInput): Promise<SubmitRevi
 
   if (input.photoR2Keys.length > 0) {
     await db.insert(reviewPhotos).values(
-      input.photoR2Keys.map((r2Key, position) => ({ reviewId: row.id, r2Key, position })),
+      input.photoR2Keys.map((storageKey, position) => ({ reviewId: row.id, storageKey, position })),
     );
   }
 

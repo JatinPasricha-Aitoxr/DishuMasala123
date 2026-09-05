@@ -8,8 +8,8 @@
 import { z } from "zod";
 import { requireUser } from "@/lib/auth/session";
 import { getUserById } from "@/lib/db/queries/users";
-import { updateProfile, updatePasswordHash } from "@/lib/db/mutations/users";
-import { hashPassword, verifyPasswordHash } from "@/lib/auth/password";
+import { updateProfile } from "@/lib/db/mutations/users";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const profileSchema = z.object({
   name: z.string().trim().min(2, "Enter your name").max(80),
@@ -42,8 +42,15 @@ const changePasswordSchema = z.object({
 
 export type ChangePasswordResult = { ok: true } | { ok: false; error: string };
 
-/** Re-verifies the CURRENT password before accepting a new one (PROMPTS.md Phase 6 item 3) —
- * never just trusts that the caller is signed in as reason enough to change it. */
+/**
+ * Re-verifies the CURRENT password before accepting a new one (PROMPTS.md Phase 6 item 3) — never
+ * just trusts that the caller is signed in as reason enough to change it.
+ *
+ * The re-verification is a real `signInWithPassword` against Supabase for this same account:
+ * Supabase owns the credential now, so there is no local hash to compare and no way to check the
+ * current password other than actually authenticating with it. A wrong password leaves the
+ * existing session untouched (the call simply fails), and the action stops before `updateUser`.
+ */
 export async function changePasswordAction(input: z.infer<typeof changePasswordSchema>): Promise<ChangePasswordResult> {
   const session = await requireUser();
   if (!session.ok) return { ok: false, error: "You need to be signed in." };
@@ -54,10 +61,15 @@ export async function changePasswordAction(input: z.infer<typeof changePasswordS
   const user = await getUserById(session.user.id);
   if (!user) return { ok: false, error: "Account not found." };
 
-  const valid = await verifyPasswordHash(user.passwordHash, parsed.data.currentPassword);
-  if (!valid) return { ok: false, error: "Current password is incorrect." };
+  const supabase = await createSupabaseServerClient();
+  const { error: reauthError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: parsed.data.currentPassword,
+  });
+  if (reauthError) return { ok: false, error: "Current password is incorrect." };
 
-  const newHash = await hashPassword(parsed.data.newPassword);
-  await updatePasswordHash(user.id, newHash);
+  const { error: updateError } = await supabase.auth.updateUser({ password: parsed.data.newPassword });
+  if (updateError) return { ok: false, error: "Could not update your password. Please try again." };
+
   return { ok: true };
 }

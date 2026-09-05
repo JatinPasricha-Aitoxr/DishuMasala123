@@ -1,6 +1,6 @@
 # Claude Code prompt kit — Dishu Masala (fully custom build)
 
-No WordPress. No WooCommerce. One Next.js app: storefront + admin, Neon Postgres, Cloudflare R2,
+No WordPress. No WooCommerce. One Next.js app: storefront + admin, Supabase (Postgres + Auth + Storage),
 Resend, Razorpay, Shiprocket.
 
 ## How to use this
@@ -34,7 +34,7 @@ API. Postgres is the only source of truth.
 Build:
 
 1. Scaffold: `pnpm create next-app` — TypeScript strict, App Router, ESLint, Tailwind v4, import
-   alias `@/*`. Add: drizzle-orm, drizzle-kit, @neondatabase/serverless, zod, zustand,
+   alias `@/*`. Add: drizzle-orm, drizzle-kit, pg, @supabase/supabase-js, @supabase/ssr, zod, zustand,
    react-hook-form, @hookform/resolvers, next-auth@beta, @node-rs/argon2, @aws-sdk/client-s3,
    @aws-sdk/s3-request-presigner, sharp, resend, @react-email/components, motion, next-sitemap,
    tsx, vitest, @playwright/test.
@@ -55,7 +55,7 @@ Build:
    with explicit on-delete behaviour — orders and order_items are never cascade-deleted. Add an
    `order_number` Postgres sequence and a helper that formats `DM-YYYY-NNNNN`.
 
-4. `lib/db/index.ts` — the Neon/Drizzle client, `import "server-only"`, pooled for serverless.
+4. `lib/db/index.ts` — the Supabase/Drizzle client over `pg`, `import "server-only"`, pooled for serverless.
    Then `lib/db/queries/` (reads) and `lib/db/mutations/` (writes). Nothing outside `lib/db/` may
    import drizzle — enforce it with an ESLint `no-restricted-imports` rule.
 
@@ -69,7 +69,7 @@ Build:
    (free-shipping threshold 50000 paise, store address in Sangrur Punjab, GSTIN placeholder marked
    TODO). Idempotent — safe to re-run. It must NOT invent reviews, customers, orders or stock counts.
 
-7. `lib/storage/r2.ts` — S3-SDK client for Cloudflare R2: `putObject`, `presignUpload` (content-type
+7. `lib/storage/storage.ts` — S3-SDK client for Supabase Storage: `putObject`, `presignUpload` (content-type
    and size constrained), `deleteObject`, `publicUrl(key)`. Key convention:
    `products/<slug>/<hash>.<ext>`, `reviews/<reviewId>/<hash>.<ext>`, `posts/<slug>/<hash>.<ext>`.
    `lib/storage/images.ts` — `sharp` pipeline producing AVIF + WebP derivatives at defined widths,
@@ -573,7 +573,7 @@ existing Google traffic. Be rigorous and do not hand-wave.
 6. Analytics: GA4 with e-commerce events (view_item, add_to_cart, begin_checkout, purchase),
    consent-aware and off the main thread, plus Search Console verification.
 
-7. Backups and safety: a documented, tested Neon backup/restore procedure and a `db:dump` script;
+7. Backups and safety: a documented, tested Supabase backup/restore procedure and a `db:dump` script;
    confirm R2 lifecycle/versioning; and a documented rollback for a bad deploy.
 
 8. `docs/DEPLOY.md` — Vercel setup (env vars, both domains, cron if any, R2 remotePatterns,

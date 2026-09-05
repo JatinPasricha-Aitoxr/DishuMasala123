@@ -121,7 +121,7 @@ async function generate(): Promise<void> {
         unitPricePaise: variant.pricePaise,
         qty,
         lineTotalPaise: lineTotal,
-        imageR2Key: null,
+        imageStorageKey: null,
       });
     }
 

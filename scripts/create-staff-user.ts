@@ -4,31 +4,24 @@
  * customers, reviews, orders or stock — that constraint is about fabricating FAKE business data.
  * This script does the opposite: it creates a REAL, operator-provided staff/admin account from
  * credentials the caller supplies (never invented here), the same way a sysadmin would run
- * `createsuperuser` for a Django app. No admin/staff account exists anywhere until this is run
- * (Phase 6's tests created one via a direct SQL insert inside test setup only — not a standing
- * account).
+ * `createsuperuser` for a Django app.
+ *
+ * Creates the account in Supabase Auth via the Admin API (the SECRET key — hence operator-only),
+ * with `email_confirm: true` so no verification round-trip is needed for a staff account the
+ * operator is provisioning deliberately. The `on_auth_user_created` trigger (migration 0008)
+ * creates the matching `public.users` row; this script then sets the role on it, because role is
+ * this application's concept and not something Supabase Auth models.
  *
  * Usage:
  *   pnpm create-staff-user --email=you@dishumasala.com --password='a-real-password' --name="Staff Name" [--role=admin]
  *   or via env vars: STAFF_EMAIL / STAFF_PASSWORD / STAFF_NAME / STAFF_ROLE
  *
  * Idempotent: re-running with the same email updates that user's password/role/name rather than
- * erroring or duplicating a row (an operator re-running this to rotate a password is the whole
- * point).
+ * erroring or duplicating (an operator re-running this to rotate a password is the whole point).
  */
-import { hash } from "@node-rs/argon2";
 import { closeScriptDb, scriptDb, eq } from "../lib/db/script-client";
 import { users } from "../lib/db/schema";
-
-// Same Argon2id hashing as lib/auth/password.ts#hashPassword — duplicated here (not imported)
-// because that module starts with `import "server-only"`, which throws unconditionally outside
-// Next.js's "react-server" bundler condition; a plain tsx/Node script (like scripts/seed.ts's own
-// lib/db/script-client.ts) never has that condition. See lib/auth/password.ts's own comment for
-// why `2` is Argon2id specifically.
-const ARGON2ID = 2;
-async function hashPassword(password: string): Promise<string> {
-  return hash(password, { algorithm: ARGON2ID });
-}
+import { createSupabaseAdminClient } from "../lib/supabase/admin-core";
 
 function parseArgs(): Record<string, string> {
   const out: Record<string, string> = {};
@@ -59,21 +52,52 @@ async function main() {
     throw new Error(`--role must be "staff" or "admin", got "${role}".`);
   }
 
-  const passwordHash = await hashPassword(password);
-  const now = new Date();
+  const supabase = createSupabaseAdminClient();
 
-  const existing = await scriptDb.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  // listUsers has no exact-email filter, so find the existing identity by scanning the first page
+  // — an operator-run script against a staff-sized set of accounts, not a hot path.
+  const { data: existingList, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+  if (listError) throw new Error(`Could not list Supabase users: ${listError.message}`);
+  const existingAuthUser = existingList.users.find((u) => u.email?.toLowerCase() === email);
 
-  if (existing[0]) {
-    await scriptDb
-      .update(users)
-      .set({ passwordHash, name, role: role as "staff" | "admin", emailVerifiedAt: now, updatedAt: now })
-      .where(eq(users.id, existing[0].id));
-    console.log(`Updated existing user ${email} -> role "${role}".`);
+  let authUserId: string;
+  if (existingAuthUser) {
+    const { error } = await supabase.auth.admin.updateUserById(existingAuthUser.id, {
+      password,
+      email_confirm: true,
+      user_metadata: { name, role },
+    });
+    if (error) throw new Error(`Could not update Supabase user: ${error.message}`);
+    authUserId = existingAuthUser.id;
+    console.log(`Updated existing Supabase auth user ${email}.`);
   } else {
-    await scriptDb.insert(users).values({ email, name, passwordHash, role: role as "staff" | "admin", emailVerifiedAt: now });
-    console.log(`Created ${role} user ${email}.`);
+    const { data, error } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { name, role },
+    });
+    if (error || !data.user) throw new Error(`Could not create Supabase user: ${error?.message ?? "unknown error"}`);
+    authUserId = data.user.id;
+    console.log(`Created Supabase auth user ${email}.`);
   }
+
+  // The trigger has created (or linked) the public.users row; set the app-side fields on it.
+  const now = new Date();
+  const updated = await scriptDb
+    .update(users)
+    .set({ name, role: role as "staff" | "admin", emailVerifiedAt: now, updatedAt: now, authUserId })
+    .where(eq(users.email, email))
+    .returning({ id: users.id });
+
+  if (updated.length === 0) {
+    throw new Error(
+      `Supabase user ${email} exists but no public.users row was found for it. ` +
+        "The on_auth_user_created trigger (migration 0008) may not be installed — run `pnpm db:migrate`.",
+    );
+  }
+
+  console.log(`public.users row #${updated[0].id} set to role "${role}".`);
 }
 
 main()

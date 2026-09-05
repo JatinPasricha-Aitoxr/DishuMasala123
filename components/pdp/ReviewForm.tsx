@@ -70,12 +70,12 @@ export function ReviewForm({ productSlug }: { productSlug: string }) {
 
       try {
         const res = await fetch("/api/reviews/upload", { method: "POST", body: form });
-        const data = (await res.json()) as { ok: boolean; r2Key?: string; error?: string };
-        if (!data.ok || !data.r2Key) {
+        const data = (await res.json()) as { ok: boolean; storageKey?: string; error?: string };
+        if (!data.ok || !data.storageKey) {
           setPhotoError(data.error ?? "Upload failed — please try again.");
           continue;
         }
-        setPhotos((prev) => [...prev, { key: data.r2Key!, previewUrl: URL.createObjectURL(file), fileName: file.name }]);
+        setPhotos((prev) => [...prev, { key: data.storageKey!, previewUrl: URL.createObjectURL(file), fileName: file.name }]);
       } catch {
         setPhotoError("Upload failed — please try again.");
       }

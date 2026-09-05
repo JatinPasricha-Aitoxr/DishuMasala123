@@ -5,111 +5,145 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
  * customer — including by calling the server actions directly... prove that directly invoking
  * the underlying server action/route handler as an authenticated-but-wrong-role customer is
  * independently rejected." `requireUser`/`requireStaffOrAdmin` (lib/auth/session.ts) are exactly
- * that redundant check — every /account and /admin server action this phase (and every future
- * admin action in Phase 7) calls one of these itself, never relying on middleware.ts having
- * already run. This test calls them directly, with `auth()` mocked to hand back a real-shaped
- * session for each role, completely bypassing middleware/the page router — the same bypass a
- * malicious or buggy caller invoking the action directly (e.g. from devtools, or a test) would
- * take.
+ * that redundant check — every /account and /admin server action calls one of these itself, never
+ * relying on middleware.ts having already run. This test calls them directly, with Supabase's
+ * `getUser()` and the `public.users` lookup mocked to hand back a real-shaped session for each
+ * role, completely bypassing middleware/the page router — the same bypass a malicious or buggy
+ * caller invoking the action directly (e.g. from devtools, or a test) would take.
  */
-const mockAuth = vi.fn();
-vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
+const mockGetUser = vi.fn();
+const mockGetUserByAuthId = vi.fn();
+
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: async () => ({ auth: { getUser: () => mockGetUser() } }),
+}));
+vi.mock("@/lib/db/queries/users", () => ({
+  getUserByAuthId: (id: string) => mockGetUserByAuthId(id),
+}));
+
+/** Shapes a signed-in Supabase response plus the app row the session helper resolves from it. */
+function signedIn(appUserId: number, role: "customer" | "staff" | "admin") {
+  mockGetUser.mockResolvedValue({ data: { user: { id: `auth-uuid-${appUserId}` } }, error: null });
+  mockGetUserByAuthId.mockResolvedValue({ id: appUserId, role });
+}
+
+function signedOut() {
+  mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+  mockGetUserByAuthId.mockResolvedValue(null);
+}
 
 describe("lib/auth/session.ts — the redundant server-side gate", () => {
   beforeEach(() => {
-    mockAuth.mockReset();
+    mockGetUser.mockReset();
+    mockGetUserByAuthId.mockReset();
   });
 
   it("requireUser rejects when signed out", async () => {
-    mockAuth.mockResolvedValue(null);
+    signedOut();
     const { requireUser } = await import("@/lib/auth/session");
-    const result = await requireUser();
-    expect(result).toEqual({ ok: false, error: "unauthenticated" });
+    expect(await requireUser()).toEqual({ ok: false, error: "unauthenticated" });
   });
 
   it("requireUser accepts any signed-in role", async () => {
-    mockAuth.mockResolvedValue({ user: { id: "42", role: "customer" } });
+    signedIn(42, "customer");
     const { requireUser } = await import("@/lib/auth/session");
-    const result = await requireUser();
-    expect(result).toEqual({ ok: true, user: { id: 42, role: "customer" } });
+    expect(await requireUser()).toEqual({ ok: true, user: { id: 42, role: "customer" } });
+  });
+
+  it("requireUser rejects a verified Supabase user with no public.users row", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "auth-uuid-orphan" } }, error: null });
+    mockGetUserByAuthId.mockResolvedValue(null);
+    const { requireUser } = await import("@/lib/auth/session");
+    expect(await requireUser()).toEqual({ ok: false, error: "unauthenticated" });
   });
 
   it("requireStaffOrAdmin rejects when signed out", async () => {
-    mockAuth.mockResolvedValue(null);
+    signedOut();
     const { requireStaffOrAdmin } = await import("@/lib/auth/session");
-    const result = await requireStaffOrAdmin();
-    expect(result).toEqual({ ok: false, error: "unauthenticated" });
+    expect(await requireStaffOrAdmin()).toEqual({ ok: false, error: "unauthenticated" });
   });
 
   it("requireStaffOrAdmin REJECTS an authenticated customer-role session (the exact case this criterion is about)", async () => {
-    mockAuth.mockResolvedValue({ user: { id: "7", role: "customer" } });
+    signedIn(7, "customer");
     const { requireStaffOrAdmin } = await import("@/lib/auth/session");
-    const result = await requireStaffOrAdmin();
-    expect(result).toEqual({ ok: false, error: "forbidden" });
+    expect(await requireStaffOrAdmin()).toEqual({ ok: false, error: "forbidden" });
   });
 
   it("requireStaffOrAdmin accepts a staff-role session", async () => {
-    mockAuth.mockResolvedValue({ user: { id: "8", role: "staff" } });
+    signedIn(8, "staff");
     const { requireStaffOrAdmin } = await import("@/lib/auth/session");
-    const result = await requireStaffOrAdmin();
-    expect(result).toEqual({ ok: true, user: { id: 8, role: "staff" } });
+    expect(await requireStaffOrAdmin()).toEqual({ ok: true, user: { id: 8, role: "staff" } });
   });
 
   it("requireStaffOrAdmin accepts an admin-role session", async () => {
-    mockAuth.mockResolvedValue({ user: { id: "9", role: "admin" } });
+    signedIn(9, "admin");
     const { requireStaffOrAdmin } = await import("@/lib/auth/session");
-    const result = await requireStaffOrAdmin();
-    expect(result).toEqual({ ok: true, user: { id: 9, role: "admin" } });
+    expect(await requireStaffOrAdmin()).toEqual({ ok: true, user: { id: 9, role: "admin" } });
+  });
+
+  it("takes the role from public.users, NOT from the token — a stale admin claim cannot elevate", async () => {
+    // The JWT still says admin (middleware would let this request through), but the database has
+    // demoted the account. The authoritative check must reject it.
+    signedIn(11, "customer");
+    const { requireStaffOrAdmin } = await import("@/lib/auth/session");
+    expect(await requireStaffOrAdmin()).toEqual({ ok: false, error: "forbidden" });
   });
 });
 
 /**
- * Same proof at the middleware layer (auth.config.ts's `authorized` callback) — this is literally
- * the function middleware.ts runs as the FIRST gate; it's tested directly here (not via an HTTP
- * round trip) to pin its exact behaviour per role/path independent of the redundant checks above.
+ * Same proof at the middleware layer — this is literally the function Next.js runs as the FIRST
+ * gate; it's tested directly here (not via an HTTP round trip) to pin its exact behaviour per
+ * role/path independent of the redundant checks above. Supabase's client is mocked so the test
+ * controls the `user_role` claim the access-token hook (migration 0008) would have stamped.
  */
-describe("auth.config.ts — the authorized callback (middleware's first gate)", () => {
-  it("blocks /admin for a signed-out visitor", async () => {
-    const { authConfig } = await import("@/auth.config");
-    const authorized = authConfig.callbacks!.authorized!;
-    const result = await authorized({
-      auth: null,
-      request: { nextUrl: new URL("http://localhost/admin") } as never,
-    } as never);
-    expect(result).toBe(false);
+const mockGetClaims = vi.fn();
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: () => ({ auth: { getClaims: () => mockGetClaims() } }),
+}));
+
+async function runMiddleware(path: string, claims: Record<string, unknown> | null) {
+  mockGetClaims.mockResolvedValue({ data: claims ? { claims } : null });
+  const { NextRequest } = await import("next/server");
+  const middleware = (await import("@/middleware")).default;
+  return middleware(new NextRequest(new URL(`http://localhost${path}`)));
+}
+
+describe("middleware.ts — the first gate", () => {
+  beforeEach(() => {
+    mockGetClaims.mockReset();
+    process.env.SUPABASE_URL ||= "http://127.0.0.1:54421";
+    process.env.SUPABASE_PUBLISHABLE_KEY ||= "test-publishable-key";
   });
 
-  it("blocks /admin for a customer-role session", async () => {
-    const { authConfig } = await import("@/auth.config");
-    const authorized = authConfig.callbacks!.authorized!;
-    const result = await authorized({
-      auth: { user: { id: "1", role: "customer" } } as never,
-      request: { nextUrl: new URL("http://localhost/admin/orders") } as never,
-    } as never);
-    expect(result).toBe(false);
+  it("redirects /admin to /login for a signed-out visitor", async () => {
+    const res = await runMiddleware("/admin", null);
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/login");
+  });
+
+  it("redirects /admin to /login for a customer-role session", async () => {
+    const res = await runMiddleware("/admin/orders", { sub: "auth-uuid-1", user_role: "customer" });
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/login");
   });
 
   it("allows /admin for a staff-role session", async () => {
-    const { authConfig } = await import("@/auth.config");
-    const authorized = authConfig.callbacks!.authorized!;
-    const result = await authorized({
-      auth: { user: { id: "1", role: "staff" } } as never,
-      request: { nextUrl: new URL("http://localhost/admin") } as never,
-    } as never);
-    expect(result).toBe(true);
+    const res = await runMiddleware("/admin", { sub: "auth-uuid-1", user_role: "staff" });
+    expect(res.status).toBe(200);
+  });
+
+  it("allows /admin for an admin-role session", async () => {
+    const res = await runMiddleware("/admin", { sub: "auth-uuid-1", user_role: "admin" });
+    expect(res.status).toBe(200);
+  });
+
+  it("treats a session with no user_role claim as a customer, never as staff", async () => {
+    const res = await runMiddleware("/admin", { sub: "auth-uuid-1" });
+    expect(res.status).toBe(307);
   });
 
   it("blocks /account for a signed-out visitor but allows any signed-in role", async () => {
-    const { authConfig } = await import("@/auth.config");
-    const authorized = authConfig.callbacks!.authorized!;
-    expect(
-      await authorized({ auth: null, request: { nextUrl: new URL("http://localhost/account") } as never } as never),
-    ).toBe(false);
-    expect(
-      await authorized({
-        auth: { user: { id: "1", role: "customer" } } as never,
-        request: { nextUrl: new URL("http://localhost/account") } as never,
-      } as never),
-    ).toBe(true);
+    expect((await runMiddleware("/account", null)).status).toBe(307);
+    expect((await runMiddleware("/account", { sub: "auth-uuid-1", user_role: "customer" })).status).toBe(200);
   });
 });

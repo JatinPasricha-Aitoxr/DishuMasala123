@@ -53,7 +53,7 @@ export type CreateOrderResult =
 /**
  * The integrity-critical transaction (CLAUDE.md §7.5): order insert + item snapshots + stock
  * decrement + coupon usage increment, all inside one real Postgres transaction (lib/db/index.ts's
- * header comment explains why the Neon Pool driver was chosen specifically for this). Any failure
+ * header comment explains why a pooled driver is required for this). Any failure
  * partway through — a stock conflict, a DB error — rolls back everything: no order, no stock
  * change, no coupon increment survives.
  *
@@ -130,7 +130,7 @@ export async function createOrderTransaction(input: CreateOrderInput): Promise<C
           unitPricePaise: line.unitPricePaise,
           qty: line.qty,
           lineTotalPaise: line.lineTotalPaise,
-          imageR2Key: line.imageR2Key,
+          imageStorageKey: line.imageStorageKey,
         })),
       );
 

@@ -22,8 +22,8 @@ export function TiptapEditor({
 }: {
   content: TiptapDoc;
   onChange: (doc: TiptapDoc) => void;
-  /** Opens the same drag-and-drop-to-R2 image upload flow products use, returning a public URL to
-   * insert — passed in by the parent so this component doesn't need its own R2/product coupling. */
+  /** Opens the same drag-and-drop-to-storage image upload flow products use, returning a public URL to
+   * insert — passed in by the parent so this component doesn't need its own storage/product coupling. */
   onRequestImage: () => Promise<{ url: string; alt: string } | null>;
 }) {
   const editor = useEditor({

@@ -3,12 +3,19 @@ import { test, expect } from "@playwright/test";
 /**
  * Real end-to-end proof of PROMPTS.md Phase 6's first acceptance criterion: "Register → verify →
  * login → logout → password reset → session refresh, all working end to end" — driven through the
- * actual UI, not described. No Resend account exists in this environment, so
- * app/api/testing/auth-tokens/route.ts (NODE_ENV-production-blocked, same pattern as the existing
- * Razorpay mock) mints the exact same signed tokens the real verification/reset emails would have
- * linked to, standing in only for "check your inbox" — everything else (the DB writes, the
- * Argon2id hashing, the session cookie, the redirect gates) is the real app.
+ * actual UI, not described. Supabase's local stack captures mail in Inbucket rather than sending
+ * it, so app/api/testing/auth-tokens/route.ts (NODE_ENV-production-blocked, same pattern as the
+ * existing Razorpay mock) asks the Supabase Admin API for the very same single-use `token_hash`
+ * the real emails would have linked to, standing in only for "check your inbox" — everything else
+ * (the DB writes, Supabase's password hashing, the session cookie, the redirect gates) is the
+ * real app.
  */
+async function tokenHashes(request: import("@playwright/test").APIRequestContext, email: string) {
+  const res = await request.post("/api/testing/auth-tokens", { data: { email } });
+  expect(res.ok()).toBe(true);
+  return (await res.json()) as { verifyTokenHash: string | null; resetTokenHash: string | null };
+}
+
 test("register → verify → login → logout → reset → session refresh", async ({ page, request }) => {
   const suffix = Date.now();
   const email = `e2e-auth-${suffix}@example.com`;
@@ -25,12 +32,18 @@ test("register → verify → login → logout → reset → session refresh", a
   await expect(page.getByText(/check your email for a verification link/i)).toBeVisible();
 
   // ---- Verify (via the test-only token mint, standing in for the email link) -------------
-  const tokenRes = await request.post("/api/testing/auth-tokens", { data: { email } });
-  expect(tokenRes.ok()).toBe(true);
-  const { verifyToken, resetToken } = (await tokenRes.json()) as { verifyToken: string; resetToken: string };
+  const { verifyTokenHash } = await tokenHashes(request, email);
+  expect(verifyTokenHash).toBeTruthy();
 
-  await page.goto(`/verify-email?token=${encodeURIComponent(verifyToken)}`);
+  await page.goto(
+    `/auth/confirm?token_hash=${encodeURIComponent(verifyTokenHash!)}&type=signup&next=${encodeURIComponent("/verify-email")}`,
+  );
   await expect(page.getByRole("heading", { name: /email verified/i })).toBeVisible();
+
+  // Confirming signs the visitor in; sign out so the login step below is a genuine login.
+  await page.goto("/account");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL("/");
 
   // ---- Login --------------------------------------------------------------------------------
   await page.goto("/login");
@@ -53,7 +66,14 @@ test("register → verify → login → logout → reset → session refresh", a
   await expect(page).toHaveURL(/\/login/); // signed out again — /account is unreachable
 
   // ---- Password reset --------------------------------------------------------------------------
-  await page.goto(`/reset-password?token=${encodeURIComponent(resetToken)}`);
+  // Minted fresh here rather than reused from the verify step: Supabase's recovery tokens are
+  // single-use and issuing a new one supersedes any earlier one.
+  const { resetTokenHash } = await tokenHashes(request, email);
+  expect(resetTokenHash).toBeTruthy();
+
+  await page.goto(
+    `/auth/confirm?token_hash=${encodeURIComponent(resetTokenHash!)}&type=recovery&next=${encodeURIComponent("/reset-password?mode=set")}`,
+  );
   await page.getByLabel("New password", { exact: true }).fill(newPassword);
   await page.getByLabel("Confirm new password").fill(newPassword);
   await page.getByRole("button", { name: "Reset password" }).click();

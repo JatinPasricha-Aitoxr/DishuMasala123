@@ -49,7 +49,7 @@ function toOrder(row: typeof orders.$inferSelect, items: (typeof orderItems.$inf
       unitPricePaise: paise(i.unitPricePaise),
       qty: i.qty,
       lineTotalPaise: paise(i.lineTotalPaise),
-      imageR2Key: i.imageR2Key,
+      imageStorageKey: i.imageStorageKey,
     })),
   };
 }

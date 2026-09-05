@@ -1,12 +1,12 @@
 /**
  * Shared upload logic for the client-supplied banner scripts (migrate-homepage-banners.ts,
  * migrate-red-tea-banner.ts, and any future banner slot) — one real implementation instead of
- * copy-pasting the sharp/R2/content-hash pipeline per script.
+ * copy-pasting the sharp/storage/content-hash pipeline per script.
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildKey, putObject } from "../../lib/storage/r2-core";
+import { buildKey, putObject } from "../../lib/storage/storage-core";
 import { processImage } from "../../lib/storage/images";
 import { scriptDb } from "../../lib/db/script-client";
 import { settings } from "../../lib/db/schema";
@@ -22,7 +22,7 @@ export interface BannerSource {
 }
 
 export interface MigratedBannerImage {
-  r2Key: string;
+  storageKey: string;
   width: number;
   height: number;
 }
@@ -59,7 +59,7 @@ async function uploadOne(file: string, slot: string): Promise<MigratedBannerImag
 
   if (!canonicalKey) throw new Error(`${slot} (${file}): no webp derivative produced`);
   console.log(`[uploaded] ${slot}: ${file} -> ${canonicalKey} (${canonicalWidth}x${canonicalHeight})`);
-  return { r2Key: canonicalKey, width: canonicalWidth, height: canonicalHeight };
+  return { storageKey: canonicalKey, width: canonicalWidth, height: canonicalHeight };
 }
 
 async function migrateOne(banner: BannerSource): Promise<MigratedBanner> {

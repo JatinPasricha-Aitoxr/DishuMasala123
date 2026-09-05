@@ -5,7 +5,7 @@ import { unstable_cache } from "next/cache";
 import { db } from "../index";
 import { collections, productImages, products, variants } from "../schema";
 import { paise } from "@/lib/money";
-import { publicUrl } from "@/lib/storage/r2";
+import { publicUrl } from "@/lib/storage/storage";
 import type { ProductCardData } from "@/types/catalog";
 
 /**
@@ -13,7 +13,7 @@ import type { ProductCardData } from "@/types/catalog";
  * plain Postgres `ILIKE` (substring matches, e.g. "tea" inside "Blue Tea") plus `pg_trgm`
  * `similarity()` (typo-tolerant fuzzy matches, e.g. "buttrfly" still finding "Butterfly Pea
  * Flower") — no external search service for a 20-product catalogue. `pg_trgm` is enabled by
- * migration 0001_enable_pg_trgm.sql; Neon Postgres supports the extension, so this same query
+ * migration 0001_enable_pg_trgm.sql; Supabase Postgres ships the extension, so this same query
  * runs unchanged in production. Ranked by the best of the two similarity scores (name weighted
  * over description), then by CLAUDE.md §7.2 priority as the tiebreak.
  */
@@ -69,7 +69,7 @@ async function fetchSearchProducts(q: string): Promise<ProductCardData[]> {
         (
           select json_agg(
             json_build_object(
-              'r2Key', ${productImages.r2Key}, 'alt', ${productImages.alt},
+              'storageKey', ${productImages.storageKey}, 'alt', ${productImages.alt},
               'width', ${productImages.width}, 'height', ${productImages.height}
             )
             order by ${productImages.isPrimary} desc, ${productImages.position}
@@ -118,7 +118,7 @@ async function fetchSearchProducts(q: string): Promise<ProductCardData[]> {
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
     variants: r.variantsJson.map((v) => ({ ...v, mrpPaise: paise(v.mrpPaise), pricePaise: paise(v.pricePaise) })),
-    images: r.imagesJson.map((img) => ({ url: publicUrl(img.r2Key), alt: img.alt, width: img.width, height: img.height })),
+    images: r.imagesJson.map((img) => ({ url: publicUrl(img.storageKey), alt: img.alt, width: img.width, height: img.height })),
   }));
 }
 
@@ -136,7 +136,7 @@ interface VariantJsonRow {
 }
 
 interface ImageJsonRow {
-  r2Key: string;
+  storageKey: string;
   alt: string;
   width: number;
   height: number;

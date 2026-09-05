@@ -39,7 +39,7 @@ export const reviews = pgTable("reviews", {
 export const reviewPhotos = pgTable("review_photos", {
   id: integer().generatedAlwaysAsIdentity().primaryKey(),
   reviewId: integer("review_id").notNull().references(() => reviews.id, { onDelete: "cascade" }),
-  r2Key: text("r2_key").notNull(),
+  storageKey: text("storage_key").notNull(),
   position: integer().notNull().default(0),
 }, (t) => [
   index("review_photos_review_id_idx").on(t.reviewId),

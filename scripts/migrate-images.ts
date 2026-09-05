@@ -1,7 +1,7 @@
 /**
  * Pulls every product image URL listed in data/catalog.json (currently hosted on
  * dishumasala.com/wp-content/uploads/), downloads with retry and a polite delay, generates AVIF +
- * WebP derivatives with sharp, uploads them to R2, and inserts/updates `product_images` rows with
+ * WebP derivatives with sharp, uploads them to Supabase Storage, and inserts/updates `product_images` rows with
  * width, height, position and is_primary.
  *
  * This is how the client's existing photography survives the old site being switched off
@@ -15,7 +15,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildKey, putObject } from "../lib/storage/r2-core";
+import { buildKey, putObject } from "../lib/storage/storage-core";
 import { processImage } from "../lib/storage/images";
 import { closeScriptDb, eq, scriptDb } from "../lib/db/script-client";
 import { productImages, products } from "../lib/db/schema";
@@ -74,7 +74,7 @@ interface ReportRow {
   position: number;
   sourceUrl: string;
   status: "uploaded" | "skipped-existing" | "failed";
-  r2Key?: string;
+  storageKey?: string;
   altText?: string;
   error?: string;
 }
@@ -120,7 +120,7 @@ async function migrateProductImage(
 
     await scriptDb.insert(productImages).values({
       productId: product.id,
-      r2Key: canonicalKey,
+      storageKey: canonicalKey,
       alt,
       width: canonicalWidth,
       height: canonicalHeight,
@@ -134,7 +134,7 @@ async function migrateProductImage(
       position,
       sourceUrl,
       status: "uploaded",
-      r2Key: canonicalKey,
+      storageKey: canonicalKey,
       altText: alt,
     };
   } catch (err) {
@@ -173,13 +173,13 @@ async function main(): Promise<void> {
     }
 
     const existingRows = await scriptDb
-      .select({ r2Key: productImages.r2Key })
+      .select({ storageKey: productImages.storageKey })
       .from(productImages)
       .where(eq(productImages.productId, row.id));
     // A key looks like products/<slug>/<hash>-w<width>.<ext> — the hash segment is what
     // idempotency is keyed on.
     const existingHashes = new Set(
-      existingRows.map((r) => r.r2Key.split("/").pop()?.split("-w")[0]).filter((h): h is string => !!h),
+      existingRows.map((r) => r.storageKey.split("/").pop()?.split("-w")[0]).filter((h): h is string => !!h),
     );
 
     for (const [position, url] of p.images.entries()) {
@@ -199,7 +199,7 @@ async function main(): Promise<void> {
       product: r.productSlug,
       position: r.position,
       status: r.status,
-      key: r.r2Key ?? "",
+      key: r.storageKey ?? "",
       error: r.error ?? "",
     })),
   );
@@ -212,7 +212,7 @@ async function main(): Promise<void> {
     "scripts/migrate-images.ts. None of it is human-written. Review and replace before launch",
     "(CLAUDE.md §5.6 requires real alt text sourced from the DB, never an auto-filled default).",
     "",
-    ...uploaded.map((r) => `- [ ] ${r.productSlug} #${r.position} (\`${r.r2Key}\`): "${r.altText}"`),
+    ...uploaded.map((r) => `- [ ] ${r.productSlug} #${r.position} (\`${r.storageKey}\`): "${r.altText}"`),
     "",
   ];
   writeFileSync(join(process.cwd(), "IMAGE_ALT_TEXT_REVIEW.md"), reviewLines.join("\n"));

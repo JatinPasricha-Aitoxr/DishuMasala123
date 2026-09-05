@@ -20,7 +20,28 @@ if (!process.env.DATABASE_URL && existsSync(".env")) {
  * exactly what's under test.)
  */
 const mockAuth = vi.fn();
-vi.mock("@/auth", () => ({ auth: () => mockAuth() }));
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: async () => ({
+    auth: {
+      async getUser() {
+        const session = await mockAuth();
+        return session?.user
+          ? { data: { user: { id: `auth-uuid-${session.user.id}` } }, error: null }
+          : { data: { user: null }, error: null };
+      },
+    },
+  }),
+}));
+// Partial mock: only the auth-id lookup the session gate uses is faked, so any other real query
+// in this file's module graph still runs against the real database.
+vi.mock("@/lib/db/queries/users", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/db/queries/users")>()),
+  async getUserByAuthId() {
+    const session = await mockAuth();
+    if (!session?.user) return null;
+    return { id: Number(session.user.id), role: session.user.role };
+  },
+}));
 vi.mock("next/cache", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/cache")>();
   return { ...actual, revalidatePath: () => undefined, updateTag: () => undefined };

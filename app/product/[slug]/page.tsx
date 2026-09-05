@@ -18,7 +18,7 @@ import { Reviews } from "@/components/pdp/Reviews";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import { CollectionFaq } from "@/components/sections/CollectionFaq";
 import { formatINR } from "@/lib/money";
-import { publicUrl } from "@/lib/storage/r2";
+import { publicUrl } from "@/lib/storage/storage";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -50,9 +50,9 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   };
 }
 
-function safeImageUrl(r2Key: string): string | null {
+function safeImageUrl(storageKey: string): string | null {
   try {
-    return publicUrl(r2Key);
+    return publicUrl(storageKey);
   } catch {
     return null;
   }
@@ -77,12 +77,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const slides: GallerySlide[] = product.images
     .map((img) => {
-      const url = safeImageUrl(img.r2Key);
+      const url = safeImageUrl(img.storageKey);
       return url ? { url, alt: img.alt, width: img.width, height: img.height } : null;
     })
     .filter((s): s is GallerySlide => s != null);
 
-  const primaryImageKey = product.images.find((img) => img.isPrimary)?.r2Key ?? product.images[0]?.r2Key;
+  const primaryImageKey = product.images.find((img) => img.isPrimary)?.storageKey ?? product.images[0]?.storageKey;
   const primaryImageUrl = primaryImageKey ? safeImageUrl(primaryImageKey) : null;
 
   const hasApprovedReviews = reviewSummary.count > 0;
@@ -120,7 +120,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       createdAt: item.createdAt.toISOString(),
       photos: item.photos
         .map((p) => {
-          const url = safeImageUrl(p.r2Key);
+          const url = safeImageUrl(p.storageKey);
           return url ? { id: p.id, url } : null;
         })
         .filter((p): p is { id: number; url: string } => p != null),

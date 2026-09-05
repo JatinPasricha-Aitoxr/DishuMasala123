@@ -22,7 +22,7 @@ export interface VariantPricingRow {
   pricePaise: Paise;
   inStock: boolean;
   stockQty: number | null;
-  imageR2Key: string | null;
+  imageStorageKey: string | null;
 }
 
 /**
@@ -55,16 +55,16 @@ export async function getVariantsForPricing(ids: number[]): Promise<VariantPrici
   const productIds = Array.from(new Set(rows.map((r) => r.productId)));
   const images = productIds.length
     ? await db
-        .select({ productId: productImages.productId, r2Key: productImages.r2Key })
+        .select({ productId: productImages.productId, storageKey: productImages.storageKey })
         .from(productImages)
         .where(and(inArray(productImages.productId, productIds), eq(productImages.isPrimary, true)))
     : [];
-  const imageByProduct = new Map(images.map((i) => [i.productId, i.r2Key]));
+  const imageByProduct = new Map(images.map((i) => [i.productId, i.storageKey]));
 
   return rows.map((r) => ({
     ...r,
     mrpPaise: paise(r.mrpPaise),
     pricePaise: paise(r.pricePaise),
-    imageR2Key: imageByProduct.get(r.productId) ?? null,
+    imageStorageKey: imageByProduct.get(r.productId) ?? null,
   }));
 }

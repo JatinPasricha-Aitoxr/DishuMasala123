@@ -1,5 +1,5 @@
 /**
- * Uploads the client-supplied Red Tea section banner (data/banners/Red Tea banner.png) to R2 and
+ * Uploads the client-supplied Red Tea section banner (data/banners/Red Tea banner.png) to Supabase Storage and
  * saves `settings.red_tea_section_banner` — the banner rendered right after the homepage's Red Tea
  * section. Same "invent nothing" exception as scripts/migrate-homepage-banners.ts (see that file's
  * header and CLAUDE.md §8's 2026-08-28 note): the image carries the client's own marketing text

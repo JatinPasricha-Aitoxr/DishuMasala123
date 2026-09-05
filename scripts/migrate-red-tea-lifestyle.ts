@@ -1,5 +1,5 @@
 /**
- * Uploads the client-supplied Red Tea lifestyle photo (data/banners/Red tea Skin.png) to R2 and
+ * Uploads the client-supplied Red Tea lifestyle photo (data/banners/Red tea Skin.png) to Supabase Storage and
  * saves `settings.red_tea_lifestyle_image` — replaces the AI-placeholder that used to sit in the
  * homepage Red Tea section's image slot (components/media/Placeholder.tsx, slot
  * "red-tea-lifestyle") with the real photo, same as scripts/migrate-images.ts does per product.
@@ -9,7 +9,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildKey, putObject } from "../lib/storage/r2-core";
+import { buildKey, putObject } from "../lib/storage/storage-core";
 import { processImage } from "../lib/storage/images";
 import { closeScriptDb, scriptDb } from "../lib/db/script-client";
 import { settings } from "../lib/db/schema";
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   }
 
   if (!canonicalKey) throw new Error("no webp derivative produced");
-  const value = { r2Key: canonicalKey, width: canonicalWidth, height: canonicalHeight, alt: ALT };
+  const value = { storageKey: canonicalKey, width: canonicalWidth, height: canonicalHeight, alt: ALT };
 
   await scriptDb
     .insert(settings)

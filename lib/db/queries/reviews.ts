@@ -15,7 +15,7 @@ export interface ReviewListItem {
   body: string;
   verifiedBuyer: boolean;
   createdAt: Date;
-  photos: { id: number; r2Key: string; position: number }[];
+  photos: { id: number; storageKey: string; position: number }[];
 }
 
 export interface ReviewSummary {
@@ -116,7 +116,7 @@ async function fetchApprovedReviews(
   const photosByReview = new Map<number, ReviewListItem["photos"]>();
   for (const p of photoRows) {
     const list = photosByReview.get(p.reviewId) ?? [];
-    list.push({ id: p.id, r2Key: p.r2Key, position: p.position });
+    list.push({ id: p.id, storageKey: p.storageKey, position: p.position });
     photosByReview.set(p.reviewId, list);
   }
 

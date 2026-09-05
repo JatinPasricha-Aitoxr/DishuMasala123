@@ -137,7 +137,7 @@ export function ProductCard({
         </Link>
 
         {primary ? (
-          // eslint-disable-next-line @next/next/no-img-element -- placeholder-free real image path; next/image wiring lands with real R2 catalogue data in Phase 3.
+          // eslint-disable-next-line @next/next/no-img-element -- placeholder-free real image path; next/image wiring lands with real catalogue data in Phase 3.
           <img
             src={primary.url}
             alt={primary.alt}
