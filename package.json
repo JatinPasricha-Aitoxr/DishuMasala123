@@ -29,7 +29,8 @@
     "migrate-product-images": "tsx --env-file-if-exists=.env scripts/migrate-product-images.ts",
     "migrate-homepage-banners": "tsx --env-file-if-exists=.env scripts/migrate-homepage-banners.ts",
     "create-staff-user": "tsx --env-file-if-exists=.env scripts/create-staff-user.ts",
-    "seed-perf-orders": "tsx --env-file-if-exists=.env scripts/seed-perf-orders.ts"
+    "seed-perf-orders": "tsx --env-file-if-exists=.env scripts/seed-perf-orders.ts",
+    "seo:redirects": "tsx scripts/generate-redirects.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1117.0",

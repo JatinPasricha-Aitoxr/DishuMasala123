@@ -61,6 +61,13 @@ const nextConfig: NextConfig = {
   // only turn standalone on when NOT building on Vercel (which always sets `VERCEL=1`) — this
   // keeps both deploy targets working with the one config, per CLAUDE.md §2/§10's "must stay
   // runnable under PM2 + Nginx" requirement.
+  // Next would otherwise answer every `/old-url/` with its own 308 to `/old-url` BEFORE
+  // middleware runs, turning each legacy WordPress URL into a two-hop chain
+  // (308 -> 301). Chains dilute link equity and slow the redirect, and the old site's URLs all
+  // carry a trailing slash. With this on, middleware.ts sees the original path and answers with a
+  // single 301 — it takes over canonicalising the trailing slash itself, for legacy and current
+  // URLs alike. See middleware.ts step 1.
+  skipTrailingSlashRedirect: true,
   output: process.env.VERCEL ? undefined : "standalone",
   // Next.js otherwise auto-appends a "read node_modules/next/dist/docs/" block to CLAUDE.md on
   // every `next dev`/build — CLAUDE.md is this project's own binding constitution, authored and

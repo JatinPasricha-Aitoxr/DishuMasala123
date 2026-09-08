@@ -1,0 +1,82 @@
+# 301 redirect map for the WooCommerce -> Next.js migration (CLAUDE.md §10).
+#
+# SOURCE OF TRUTH. Edit this file, then run `pnpm seo:redirects` to regenerate
+# lib/seo/redirects.generated.ts, which middleware.ts actually reads. A Vitest test asserts the
+# two never drift apart, so a forgotten regeneration fails the build rather than silently
+# shipping a stale map.
+#
+# Built from the old site's own published sitemaps (sitemap_index.xml, 11 sub-sitemaps, 75 URLs)
+# rather than a crawl: dishumasala.com/robots.txt sets `User-agent: ClaudeBot / Disallow: /`, and
+# the sitemaps are both the authorised inventory and a more complete one.
+#
+# `from` is matched with the trailing slash stripped, so the WordPress `/foo/` form and `/foo`
+# both hit the same rule. Every `to` must be a real route — the test proves it.
+#
+# from,to,note
+#
+# --- Products: 19 of 21 old slugs are unchanged, so they need no rule at all. -----------------
+# Only the two that genuinely moved appear here.
+/product/turmeric-powder,/product/turmeric-powder-haldi-powder,RENAMED slug - would 404 without this
+/product/gift-health-this-year-for-rakhi,/collections/combos,discontinued seasonal product - nearest live category
+#
+# --- WooCommerce product categories -> collections -------------------------------------------
+/product-category/combo-packs,/collections/combos,
+/product-category/spices,/collections/spices,
+/product-category/teas,/shop,"AMBIGUOUS: old ""teas"" spanned blue/red/classic; /shop is the only honest superset"
+#
+# --- WooCommerce product tags -> the specific product or collection they described ------------
+/product-tag/blue-tea-loose,/product/premium-herbal-blue-tea-loose,
+/product-tag/blue-tea-teabags,/product/premium-herbal-blue-tea-teabags,
+/product-tag/red-tea-loose,/product/premium-herbal-red-tea-loose,
+/product-tag/red-tea-teabags,/product/premium-herbal-red-tea-teabags,
+/product-tag/classic-tea,/collections/classic-teas,
+/product-tag/premium-aasam-tea,/collections/classic-teas,
+/product-tag/combo-packs,/collections/combos,
+/product-tag/spices,/collections/spices,
+/product-tag/powder,/collections/spices,
+/product-tag/black-pepper,/product/black-pepper-powder,
+/product-tag/coriander,/product/coriander-powder,
+/product-tag/garam-masala,/product/garam-masala-powder,
+/product-tag/red-chilly,/product/red-chilli-powder,
+/product-tag/turmeric,/product/turmeric-powder-haldi-powder,
+/product-tag/tea,/shop,"AMBIGUOUS: generic ""tea"" tag spanned every tea line"
+#
+# --- Policy and account pages -----------------------------------------------------------------
+/privacy-policy,/privacy,
+/terms-conditions,/terms,
+/terms-of-service,/terms,both old terms URLs collapse onto one new page
+/my-account,/account,
+/sign-in,/login,
+/sign-up,/register,
+/wishlist,/account/wishlist,
+/compare,/shop,product-compare feature does not exist in the new build
+#
+# --- Editorial: the three 2021 posts were NOT migrated (see gaps in docs/SEO-MIGRATION.md) ----
+/2021/03/17/a-beginners-guide-to-understanding-the-different-types-of-spices,/blog,CONTENT GAP - post not migrated
+/2021/03/17/spices-beyond-flavor-their-role-in-medicine-and-wellness,/blog,CONTENT GAP - post not migrated
+/2021/03/17/the-magic-of-spices-how-they-elevate-your-cooking,/blog,CONTENT GAP - post not migrated
+/category/fresh-spices,/blog,
+/tag/food,/blog,
+/tag/fresh,/blog,
+/tag/healthy,/blog,
+/author/admin,/blog,
+#
+# --- Pages with no new equivalent yet (CONTENT GAPS - client must supply copy) ----------------
+/about-us,/shop,CONTENT GAP - no About page exists yet
+/contact-us,/shop,CONTENT GAP - no Contact page exists yet
+/faqs,/shop,CONTENT GAP - no FAQ page exists yet
+#
+# --- WooCommerce order-status archives -> the real order lookup -------------------------------
+/order_status,/order/lookup,
+/order_status/packed,/order/lookup,
+/order_status/shipped,/order/lookup,
+/order_status/in-transit,/order/lookup,
+/order_status/out-for-delivery,/order/lookup,
+#
+# --- Theme/plugin artefacts that were never real content --------------------------------------
+/ct-mega-menu,/,WordPress theme internal
+/ct-mega-menu/demos,/,WordPress theme internal
+/ct-mega-menu/elements,/,WordPress theme internal
+/ct-mega-menu/shop,/shop,WordPress theme internal
+/footer,/,WordPress theme internal
+/footer/footer,/,WordPress theme internal
