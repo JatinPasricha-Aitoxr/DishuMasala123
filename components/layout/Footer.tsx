@@ -28,7 +28,7 @@ const SOCIAL_SLOTS = [
   },
 ];
 
-const PAYMENT_BADGES = ["Razorpay", "UPI", "COD"];
+const PAYMENT_BADGES = ["Razorpay", "UPI", "Cards", "Netbanking"];
 
 function formatAddressLine(city: string, state: string): string {
   return `${city}, ${state}`;
@@ -44,7 +44,12 @@ export async function Footer() {
 
   return (
     <footer className="mt-16 bg-surface-2">
-      <div aria-hidden="true" className="h-1.5 w-full" style={{ backgroundImage: "var(--gradient-lemon-shift)" }} />
+      {/* A single 1px gold hairline, not the full lemon-shift gradient (design-review call: the
+       * gradient already lands as the homepage's full-bleed section journey — repeating it as a
+       * footer bar read as a leftover rainbow rather than a deliberate accent, and diluted the
+       * "one showpiece, then a restrained accent system" discipline). The hairline is the
+       * CLAUDE.md §5.2 --color-gold token, the same "premium hairline" device used elsewhere. */}
+      <div aria-hidden="true" className="h-px w-full bg-gold/60" />
 
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
         <div className="flex flex-col items-start gap-4">
@@ -104,6 +109,16 @@ export async function Footer() {
                 </Link>
               </li>
             ))}
+            <li>
+              <Link href="/corporate-gifting/" className="text-sm text-ink-2 hover:text-ink">
+                Corporate & Bulk Gifting
+              </Link>
+            </li>
+            <li>
+              <Link href="/contact/" className="text-sm text-ink-2 hover:text-ink">
+                Contact Us
+              </Link>
+            </li>
           </ul>
         </div>
 

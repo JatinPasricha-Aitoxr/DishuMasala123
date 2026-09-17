@@ -12,6 +12,32 @@
  */
 
 export const HOME_COPY = {
+  /**
+   * Draft copy only — grounded in the two facts on record (the name, the sourcing), nothing else.
+   * CLAUDE.md §8 forbids inventing biography the same way it forbids inventing reviews or awards,
+   * so this deliberately stays short rather than guessing at a founding story. Swap this paragraph
+   * for the founder's own words before launch; the section renders fine as-is if that doesn't
+   * happen before a deploy, it just won't be as personal as it could be.
+   */
+  founderStory: {
+    eyebrow: "Our Story",
+    heading: "The Dishu Masala Story",
+    body: [
+      "It began with a simple question a father kept asking himself: would I feed this to my own daughter?",
+      "When Dishu was born, everything changed the way it does for every parent — suddenly the ingredient list on the back of a packet mattered. The unpronounceable names, the hidden preservatives, the \"added colour\" and \"artificial flavour\" tucked into the very masalas that were supposed to make our food nourishing. The spices that have healed and warmed Indian kitchens for thousands of years had quietly been compromised.",
+      "So we decided to make the masalas we actually wanted in our own home — and named them after the little girl who inspired the standard. Dishu Masala is spice the way it was always meant to be: clean, honest, and free of preservatives. Just real ingredients, sun and soil and stone, nothing to hide on the label because there's nothing hiding in the jar.",
+      "But good health isn't only about what you cook — it's also about what you sip. That's why Dishu Masala grew into something larger than a spice brand: a small, honest initiative for everyday wellness. Our Blue Tea, brewed from butterfly-pea flower, and our Red Tea, rich and caffeine-free, are our invitation to slow down and choose better — one warm cup at a time.",
+      "We're not a giant factory. We're a family that believes purity shouldn't be a luxury. Every blend we make has to pass one final test — the one we started with. Would we serve it to Dishu?",
+      "If the answer is yes, it earns its place in your kitchen too.",
+    ],
+    tagline: "Dishu Masala — pure enough for our daughter, pure enough for your family.",
+    // Real name, client-supplied (2026-09-17) — CLAUDE.md §8 bans inventing a founder bio, not
+    // using a real one once given. Rendered as a plain attribution line, not a photo (this
+    // component's own header comment explains why a founder photo slot is deliberately not added
+    // just because a name now exists).
+    signOff: "Harish Sachdeva",
+  },
+
   blueTeaBand: {
     eyebrow: "The Lemon Shift",
     heading: "Blue, until you add lemon.",
@@ -54,6 +80,11 @@ export const HOME_COPY = {
     ],
   },
 
+  /**
+   * Spices — now Masala's own full-bleed lead band (MasalaBand.tsx), the pillar counterpart to
+   * blueTeaBand above (CLAUDE.md §7.2, amended). ctaLabel/ctaHref added to match blueTeaBand's
+   * shape — every other field is the pre-existing, already-approved copy, untouched.
+   */
   spices: {
     eyebrow: "Spices",
     heading: "Single-Origin. Double-Layer Packed.",
@@ -64,6 +95,8 @@ export const HOME_COPY = {
         "vibrant from the pack to your kitchen.",
       "Purely Sourced • Carefully Packed • Full of Flavour",
     ],
+    ctaLabel: "Shop Spices",
+    ctaHref: "/collections/spices/",
   },
 
   classicAssam: {

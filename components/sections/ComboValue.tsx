@@ -34,7 +34,7 @@ export function ComboValue({ combos, spices }: ComboValueProps) {
   }
 
   return (
-    <section aria-labelledby="combos-heading" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
+    <section aria-labelledby="combos-heading" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:py-16">
       <SectionHeading
         id="combos-heading"
         eyebrow={HOME_COPY.combos.eyebrow}

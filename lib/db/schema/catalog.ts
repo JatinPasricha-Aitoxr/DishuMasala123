@@ -74,6 +74,10 @@ export const variants = pgTable("variants", {
   // When null, stock is boolean and no quantity is ever shown on the storefront.
   stockQty: integer("stock_qty"),
   position: integer().notNull().default(0),
+  // Nullable: most variants (today, every one except Blue Tea loose's 2-pack/4-pack) have no photo
+  // of their own and fall back to the product's shared primary image on the PDP (client request,
+  // 2026-09-17: pack-tier variants get their own real pack-shot above the option card).
+  imageStorageKey: text("image_storage_key"),
 }, (t) => [
   uniqueIndex("variants_sku_uniq").on(t.sku),
   index("variants_product_id_idx").on(t.productId),

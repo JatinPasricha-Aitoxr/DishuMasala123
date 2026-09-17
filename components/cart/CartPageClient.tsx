@@ -9,6 +9,7 @@ import { EmptyCart } from "./EmptyCart";
 import { FreeShippingProgress } from "./FreeShippingProgress";
 import { CouponField } from "./CouponField";
 import { OrderSummary } from "./OrderSummary";
+import { TrustIndicators } from "./TrustIndicators";
 import { useCartStore, selectFreeShippingThresholdPaise, selectRupeesToFreeShippingPaise, selectSubtotalPaise } from "@/lib/store/cart";
 
 /**
@@ -18,7 +19,7 @@ import { useCartStore, selectFreeShippingThresholdPaise, selectRupeesToFreeShipp
  * (app/cart/page.tsx) and passed down as `children`-style composition — the standard way to mix a
  * server-fetched slot into a client tree without the client component importing server code.
  */
-export function CartPageClient({ upsells }: { upsells: ReactNode }) {
+export function CartPageClient({ upsells, bestsellers }: { upsells: ReactNode; bestsellers?: ReactNode }) {
   const lines = useCartStore((s) => s.lines);
   const pricing = useCartStore((s) => s.pricing);
   const subtotalPaise = useCartStore(selectSubtotalPaise);
@@ -34,7 +35,7 @@ export function CartPageClient({ upsells }: { upsells: ReactNode }) {
       </div>
 
       {lines.length === 0 ? (
-        <EmptyCart />
+        <EmptyCart bestsellers={bestsellers} />
       ) : (
         <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_360px]">
           <div className="flex flex-col gap-6">
@@ -52,8 +53,9 @@ export function CartPageClient({ upsells }: { upsells: ReactNode }) {
             <CouponField />
             <OrderSummary pricing={pricing} />
             <Button asChild variant="gradient" size="lg">
-              <Link href="/checkout/">Checkout</Link>
+              <Link href="/checkout/">Proceed to checkout →</Link>
             </Button>
+            <TrustIndicators />
           </aside>
         </div>
       )}

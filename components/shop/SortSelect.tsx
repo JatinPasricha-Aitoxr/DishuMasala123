@@ -37,11 +37,11 @@ export function SortSelect({ filters, action, className }: SortSelectProps) {
   delete preserved.sort;
 
   return (
-    <form ref={formRef} method="GET" action={action} className={cn("flex items-center gap-2", className)}>
+    <form ref={formRef} method="GET" action={action} className={cn("flex min-w-0 items-center gap-2", className)}>
       {Object.entries(preserved).map(([key, value]) => (
         <input key={key} type="hidden" name={key} value={value} />
       ))}
-      <label htmlFor="shop-sort" className="text-sm font-medium text-ink-2">
+      <label htmlFor="shop-sort" className="hidden shrink-0 text-sm font-medium text-ink-2 sm:inline">
         Sort
       </label>
       <select
@@ -49,7 +49,7 @@ export function SortSelect({ filters, action, className }: SortSelectProps) {
         name="sort"
         defaultValue={filters.sort}
         onChange={() => formRef.current?.requestSubmit()}
-        className="h-11 rounded-md border border-line bg-surface px-3 text-[0.95rem] text-ink"
+        className="h-11 min-w-0 max-w-[9.5rem] truncate rounded-md border border-line bg-surface px-3 text-[0.95rem] text-ink sm:max-w-none"
       >
         {(Object.keys(SORT_LABELS) as ShopSort[]).map((sort) => (
           <option key={sort} value={sort}>

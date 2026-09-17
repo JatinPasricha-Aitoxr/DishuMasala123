@@ -6,6 +6,10 @@ import type { Paise } from "@/lib/money";
 export interface DetailsProps {
   description: string | null;
   freeShippingThresholdPaise: Paise;
+  /** Gates the "Wellness Benefits" accordion (see this file's other comment) — true only for the
+   * two Blue Tea product slugs the client explicitly confirmed this copy for. Every other
+   * product's own "Health Benefits" text stays parsed-but-unrendered, same as before. */
+  showHealthBenefits?: boolean;
 }
 
 /** Renders multi-line block text as real paragraphs — a plain `\n`-joined string, never markup. */
@@ -20,13 +24,15 @@ function BlockText({ text }: { text: string }) {
 }
 
 /**
- * Four accordions built from the product's own stored `description` copy (Key Characteristics,
+ * Accordions built from the product's own stored `description` copy (Key Characteristics,
  * Ingredients, How to brew / How to use) plus one generic, identical-on-every-PDP Shipping &
  * Returns accordion (PROMPTS.md Phase 4 item 5). "Health Benefits" is parsed by
- * lib/pdp/parse-description.ts but never rendered anywhere — CLAUDE.md §8 bans health claims
- * regardless of what the source copy says.
+ * lib/pdp/parse-description.ts but rendered only when `showHealthBenefits` is true — CLAUDE.md §8
+ * bans this project from authoring health claims on its own initiative, so this stays off by
+ * default; it's on only for the two Blue Tea products, where the client supplied this exact copy
+ * and confirmed using it twice (see parse-description.ts's header comment for the full log).
  */
-export function Details({ description, freeShippingThresholdPaise }: DetailsProps) {
+export function Details({ description, freeShippingThresholdPaise, showHealthBenefits = false }: DetailsProps) {
   const parsed = parseProductDescription(description);
   const defaultOpen: string[] = [];
   if (parsed.keyCharacteristics) defaultOpen.push("characteristics");
@@ -68,12 +74,20 @@ export function Details({ description, freeShippingThresholdPaise }: DetailsProp
           </AccordionItem>
         )}
 
+        {showHealthBenefits && parsed.healthBenefits && (
+          <AccordionItem value="wellness-benefits">
+            <AccordionTrigger>Wellness Benefits</AccordionTrigger>
+            <AccordionContent>
+              <BlockText text={parsed.healthBenefits} />
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
         <AccordionItem value="shipping-returns">
           <AccordionTrigger>Shipping &amp; Returns</AccordionTrigger>
           <AccordionContent>
             <div className="flex flex-col gap-1.5 text-sm leading-relaxed text-ink-2">
               <p>Free shipping on orders over {formatINR(freeShippingThresholdPaise)}.</p>
-              <p>Cash on Delivery is available.</p>
               {/* No return/refund window number exists anywhere in this project's docs today — the
                * client hasn't supplied one, and CLAUDE.md §8 bans inventing a figure. The real
                * policy page (returns window, refund process, grievance contact) ships in Phase 8. */}

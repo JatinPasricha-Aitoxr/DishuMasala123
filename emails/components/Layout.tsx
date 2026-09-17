@@ -59,7 +59,7 @@ export function EmailLayout({
           <Hr style={{ borderColor: COLOR_LINE, margin: 0 }} />
           <Section style={{ padding: "24px 32px" }}>
             <Text style={{ fontFamily: "Arial, Helvetica, sans-serif", fontSize: "12px", color: COLOR_INK_2, margin: 0 }}>
-              Dishu Food and Beverages · Sangrur, Punjab, India · +91 99882 27798
+              Dishu Food and Beverages · Sangrur, Punjab, India · +91 77102 19958
             </Text>
             <Text style={{ fontFamily: "Arial, Helvetica, sans-serif", fontSize: "12px", color: COLOR_INK_2, margin: "4px 0 0" }}>
               This is a transactional email about an order placed on dishumasala.com.

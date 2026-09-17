@@ -9,6 +9,7 @@ import {
 import { getReviewSummary, getApprovedReviews } from "@/lib/db/queries/reviews";
 import { getFreeShippingThresholdPaise } from "@/lib/db/queries/settings";
 import { getCollectionsWithStats } from "@/lib/db/queries/collections";
+import { TEA_COLLECTION_SLUGS, MASALA_COLLECTION_SLUGS } from "@/lib/nav";
 import { Gallery, type GallerySlide } from "@/components/pdp/Gallery";
 import { PdpInteractive } from "@/components/pdp/PdpInteractive";
 import { PincodeCheck } from "@/components/pdp/PincodeCheck";
@@ -17,6 +18,7 @@ import { BrewStory } from "@/components/pdp/BrewStory";
 import { Reviews } from "@/components/pdp/Reviews";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import { CollectionFaq } from "@/components/sections/CollectionFaq";
+import { SetWhatsAppOrderMessage } from "@/components/marketing/SetWhatsAppOrderMessage";
 import { formatINR } from "@/lib/money";
 import { publicUrl } from "@/lib/storage/storage";
 
@@ -75,6 +77,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const isBlueTea = collection?.slug === "blue-tea";
   const primaryVariant = product.variants[0];
 
+  // Cross-pillar nudge (CLAUDE.md §7.2's 2026-09-10 amendment: Tea and Masala are co-equal
+  // pillars): a Tea product points at Masala's own strongest hook (spices), a Masala product
+  // points at Tea's (blue-tea) — reusing lib/nav.ts's pillar sets rather than inventing a second
+  // classification. `null` for a product in neither set (there isn't one today, but this degrades
+  // to "no nudge" rather than guessing).
+  const otherPillarSlug = collection && TEA_COLLECTION_SLUGS.has(collection.slug)
+    ? "spices"
+    : collection && MASALA_COLLECTION_SLUGS.has(collection.slug)
+      ? "blue-tea"
+      : null;
+  const otherPillarCollection = otherPillarSlug ? collections.find((c) => c.slug === otherPillarSlug) ?? null : null;
+
   const slides: GallerySlide[] = product.images
     .map((img) => {
       const url = safeImageUrl(img.storageKey);
@@ -113,6 +127,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
     };
   }
 
+  const breadcrumbItems = [
+    { name: "Shop", url: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/shop` },
+    ...(collection
+      ? [{ name: collection.title, url: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/collections/${collection.slug}` }]
+      : []),
+    { name: product.name, url: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/product/${product.slug}/` },
+  ];
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      item: item.url,
+    })),
+  };
+
   const reviewsPageForClient = {
     ...reviewsFirstPage,
     items: reviewsFirstPage.items.map((item) => ({
@@ -130,8 +162,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-12">
+      {/* Removed 2026-09-17 on the client's written bug list: "butterfly animation was needed
+       * before this page not here, remove it" — the falling-flower overlay belongs on the Blue Tea
+       * collection entrance, not the product page. It was also failing on its own terms here: the
+       * source art is a 638x841 detailed flower drawn at 14-28px and 40-70% opacity, which read as
+       * grey smudges sitting over the product title, the stock line and the pincode field rather
+       * than as petals. Both overlays are kept as components for reuse on the collection page. */}
+
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-16">
       <nav aria-label="Breadcrumb" className="mb-6 text-sm text-ink-2">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
@@ -156,7 +196,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </ol>
       </nav>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
+      <SetWhatsAppOrderMessage productName={product.name} />
+
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-20">
         <Gallery productName={product.name} slides={slides} />
 
         <div className="flex flex-col gap-6">
@@ -169,11 +211,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
             primaryImageUrl={primaryImageUrl}
             reviewCount={reviewSummary.count}
             reviewAverage={reviewSummary.average}
+            freeShippingThresholdPaise={freeShippingThresholdPaise}
           />
 
           <PincodeCheck />
 
-          <Details description={product.description} freeShippingThresholdPaise={freeShippingThresholdPaise} />
+          <Details
+            description={product.description}
+            freeShippingThresholdPaise={freeShippingThresholdPaise}
+            // Blue Tea's collection has exactly these two products (loose + teabags) — the two
+            // slugs the client explicitly confirmed this Wellness Benefits copy for (see
+            // Details.tsx / lib/pdp/parse-description.ts). No other collection gets this on.
+            showHealthBenefits={isBlueTea}
+          />
         </div>
       </div>
 
@@ -194,7 +244,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       {related.length > 0 && (
         <div className="mt-16 border-t border-line pt-12">
-          <h2 className="font-display text-2xl font-semibold text-ink sm:text-3xl">You may also like</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+            <h2 className="font-display text-2xl font-semibold text-ink sm:text-3xl">You may also like</h2>
+            {otherPillarCollection && (
+              <Link
+                href={`/collections/${otherPillarCollection.slug}`}
+                className="text-sm font-medium text-ink-2 underline underline-offset-4 hover:text-ink"
+              >
+                Explore {otherPillarCollection.title} →
+              </Link>
+            )}
+          </div>
           <div className="mt-6">
             <ProductGrid products={related} />
           </div>

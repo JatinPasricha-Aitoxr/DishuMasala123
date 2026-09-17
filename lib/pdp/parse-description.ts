@@ -6,10 +6,18 @@
  * parser — no per-product special-casing — so it works identically across every seeded product's
  * own copy, and does nothing product-specific if a section is simply absent.
  *
- * "Health Benefits" is deliberately never surfaced by any function here, even though the source
- * copy has that section for several products — CLAUDE.md §8 bans health/medicinal claims
- * regardless of what the source data says, following the same exclusion Phase 2's homepage copy
- * already established.
+ * "Health Benefits" is parsed here but, by default, most products' own copy in that section stays
+ * unsurfaced by convention — CLAUDE.md §8 bans this project from authoring health/medicinal
+ * claims on its own initiative. It IS exposed as `healthBenefits` because one real, explicit
+ * exception exists: both Blue Tea products' "Health Benefits" copy was supplied verbatim by the
+ * client stakeholder (2026-09-17), after being told directly this is the kind of claim CLAUDE.md
+ * normally keeps this project from writing itself, and reconfirmed once more after that was
+ * repeated back — the same "client's own explicit call, logged rather than re-litigated" pattern
+ * §8 already uses for the banner/gallery image exceptions. This parser stays generic (it always
+ * returns whatever's there, for any product), but `Details.tsx` only renders `healthBenefits` for
+ * the two Blue Tea slugs specifically — every other product's own "Health Benefits" copy (Red Tea,
+ * Classic/Assam, Spices) has never been confirmed by the client the same way and must stay
+ * unsurfaced until it is.
  */
 
 export interface ParsedDescription {
@@ -23,6 +31,9 @@ export interface ParsedDescription {
   ingredients: string | null;
   /** The "Culinary Uses" section, renamed "How to brew / How to use" for display — null when absent. */
   howToUse: string | null;
+  /** The "Health Benefits" section's raw content — null when absent. See this file's header
+   * comment: rendering it is an explicit, logged, client-confirmed exception, not a default. */
+  healthBenefits: string | null;
 }
 
 const KNOWN_HEADERS = ["Key Characteristics", "Culinary Uses", "Health Benefits", "Storage"];
@@ -37,7 +48,7 @@ function isHeaderBlock(block: string): string | null {
 
 export function parseProductDescription(description: string | null): ParsedDescription {
   if (!description) {
-    return { intro: null, keyCharacteristics: null, ingredients: null, howToUse: null };
+    return { intro: null, keyCharacteristics: null, ingredients: null, howToUse: null, healthBenefits: null };
   }
 
   const blocks = description
@@ -79,5 +90,6 @@ export function parseProductDescription(description: string | null): ParsedDescr
     keyCharacteristics,
     ingredients,
     howToUse: sections.get("Culinary Uses") ?? null,
+    healthBenefits: sections.get("Health Benefits") ?? null,
   };
 }

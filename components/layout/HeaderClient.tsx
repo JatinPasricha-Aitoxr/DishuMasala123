@@ -114,7 +114,10 @@ function IconCountButton({
     >
       {icon}
       {count > 0 && (
-        <span className="tabular-nums absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-hibiscus text-[10px] font-semibold text-white">
+        <span
+          key={count}
+          className="tabular-nums absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-hibiscus text-[10px] font-semibold text-white animate-[badge-pop_320ms_cubic-bezier(.16,1,.3,1)_both]"
+        >
           {count}
         </span>
       )}
@@ -122,11 +125,17 @@ function IconCountButton({
   );
 }
 
-// Client-directed nav order (2026-08-28) — Spices before Combos, matching the same swap already
-// made to the homepage's own section order. This is deliberately NOT `collections.priority`
-// (Combos=4, Spices=5) — it's a nav-specific display order, the same kind of homepage-template
-// exception PRD §5.1 already established for Classic & Assam.
-const NAV_ORDER = ["blue-tea", "red-tea", "classic-teas", "spices", "combos"];
+// Nav order (CLAUDE.md §7.2, amended 2026-09-10): Tea and Masala interleaved rather than tea-
+// first-then-everything-else, matching `collections.priority` now that the DB values themselves
+// were renumbered to interleave (data/catalog.json: blue-tea=1, spices=2, red-tea=3, combos=4,
+// classic-teas=5). Kept as an explicit literal, not a derived sort, for the same reason the
+// previous version was — a nav-specific display order shouldn't silently drift if `priority` is
+// ever retuned for a different reason (e.g. a single product's placement) without a matching nav
+// decision.
+// `tea-combos` added 2026-09-17 when the combos range was split in two. It has to be listed:
+// unlisted slugs get indexOf === -1 and sort to the FRONT of the nav, which is exactly what
+// happened — Tea Combos appeared as the first item, ahead of Blue Tea.
+const NAV_ORDER = ["blue-tea", "spices", "red-tea", "combos", "tea-combos", "classic-teas"];
 
 export function HeaderClient({ columns, freeShippingThresholdPaise, logo }: HeaderClientProps) {
   const pathname = usePathname();
@@ -205,16 +214,28 @@ export function HeaderClient({ columns, freeShippingThresholdPaise, logo }: Head
   return (
     <Drawer>
       {!dismissed && (
-        <div className="relative flex items-center justify-center gap-2 bg-ink px-10 py-2 text-center text-xs font-medium text-surface sm:text-sm">
-          <span>
-            Free shipping over {formatINR(freeShippingThresholdPaise)} &middot; Use code{" "}
-            <strong className="font-semibold tracking-[0.02em]">WELCOME5</strong> for 5% off your first order
-          </span>
+        // Citrus, not ink (client request: the offer strip should read as its own thing, not
+        // blend into the same near-black chrome as the header/buttons/focus rings below it). Citrus
+        // is the Lemon Shift's own final gradient stop and already what this project uses for "free
+        // shipping" specifically (the cart's FreeShippingProgress bar) — this strip is that same
+        // free-shipping claim (plus WELCOME5) surfaced at the very top, so reusing citrus for it is
+        // on-brand rather than an arbitrary new colour. Dark ink text, never white/surface here:
+        // white-on-citrus fails contrast outright (CLAUDE.md §5.6 already calls this out for the
+        // gradient's citrus stop); ink-on-citrus clears 11:1, checked, not assumed.
+        <div className="relative flex items-center justify-center gap-2 bg-citrus px-10 py-2 text-center text-xs font-medium text-ink sm:text-sm">
+          {/* The coupon code was removed from this strip on 2026-09-17. It advertised WELCOME5 at
+           * 5% off a first order while PhoneCapturePopup — which opens 5.5s into the same page view
+           * — offers LUCKY10 at 10% off a first order. Two different first-order discounts visible
+           * within a few seconds of each other reads as untrustworthy and trains shoppers to go
+           * looking for a better code. Both coupons still exist and still work; only the top-strip
+           * advertisement of the weaker one is gone, leaving the strip to carry the shipping
+           * threshold, which is the claim that applies to everyone. */}
+          <span>Free shipping over {formatINR(freeShippingThresholdPaise)}</span>
           <button
             type="button"
             onClick={dismissAnnouncement}
             aria-label="Dismiss announcement"
-            className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm hover:bg-white/10"
+            className="absolute right-2 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-sm hover:bg-ink/10"
           >
             ✕
           </button>
@@ -249,7 +270,11 @@ export function HeaderClient({ columns, freeShippingThresholdPaise, logo }: Head
               Flattened from `columns` (still DB-priority-ordered — CLAUDE.md §7.2) rather than
               adding a second data shape; the "Teas" grouping only mattered for the old dropdown's
               column layout. */}
-          <nav aria-label="Collections" className="ml-2 hidden items-center gap-0.5 lg:flex">
+          {/* `flex-nowrap` + per-link `whitespace-nowrap` (2026-09-17): adding the sixth collection
+              (Tea Combos) took this row to nine items and it began wrapping onto a second line —
+              every multi-word label ("Classic & Assam", "Corporate Gifting") broke mid-label. The
+              row fits at 1440px once labels are kept intact and the `lg` padding is tightened. */}
+          <nav aria-label="Collections" className="ml-2 hidden min-w-0 flex-nowrap items-center gap-0.5 lg:flex">
             {flatCollectionLinks.map((item) => {
               const isActive = pathname === `/collections/${item.slug}`;
               return (
@@ -258,7 +283,7 @@ export function HeaderClient({ columns, freeShippingThresholdPaise, logo }: Head
                   href={`/collections/${item.slug}/`}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "relative rounded-full px-4 py-2 text-sm font-semibold tracking-[-0.005em] transition-colors duration-150",
+                    "relative whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-semibold tracking-[-0.005em] transition-colors duration-150 xl:px-4",
                     isActive ? "text-brew-2" : "text-ink hover:bg-surface-2",
                   )}
                 >
@@ -273,15 +298,35 @@ export function HeaderClient({ columns, freeShippingThresholdPaise, logo }: Head
               href="/shop/"
               aria-current={pathname === "/shop" ? "page" : undefined}
               className={cn(
-                "rounded-full px-4 py-2 text-sm font-semibold tracking-[-0.005em] transition-colors duration-150",
+                "whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-semibold tracking-[-0.005em] transition-colors duration-150 xl:px-4",
                 pathname === "/shop" ? "text-brew-2" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
               )}
             >
               All products
             </Link>
+            <Link
+              href="/corporate-gifting/"
+              aria-current={pathname === "/corporate-gifting" ? "page" : undefined}
+              className={cn(
+                "whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-semibold tracking-[-0.005em] transition-colors duration-150 xl:px-4",
+                pathname === "/corporate-gifting" ? "text-brew-2" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
+              )}
+            >
+              Corporate Gifting
+            </Link>
+            <Link
+              href="/contact/"
+              aria-current={pathname === "/contact" ? "page" : undefined}
+              className={cn(
+                "whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-semibold tracking-[-0.005em] transition-colors duration-150 xl:px-4",
+                pathname === "/contact" ? "text-brew-2" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
+              )}
+            >
+              Contact
+            </Link>
           </nav>
 
-          <div className="ml-auto flex items-center gap-0.5">
+          <div className="ml-auto flex items-center gap-0.5 pl-2 lg:pl-4">
             {searchOpen ? (
               <form
                 role="search"
@@ -356,6 +401,16 @@ export function HeaderClient({ columns, freeShippingThresholdPaise, logo }: Head
             ))}
           </nav>
           <div className="mt-8 flex flex-col gap-1 border-t border-line pt-5">
+            <DrawerClose asChild>
+              <Link href="/corporate-gifting/" className="py-2 text-sm font-medium text-ink-2">
+                Corporate Gifting
+              </Link>
+            </DrawerClose>
+            <DrawerClose asChild>
+              <Link href="/contact/" className="py-2 text-sm font-medium text-ink-2">
+                Contact
+              </Link>
+            </DrawerClose>
             <DrawerClose asChild>
               <Link href="/account" className="py-2 text-sm font-medium text-ink-2">
                 Account

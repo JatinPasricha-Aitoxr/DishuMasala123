@@ -8,6 +8,7 @@ export * from "./reviews";
 export * from "./wishlist";
 export * from "./content";
 export * from "./newsletter";
+export * from "./marketing";
 export * from "./pincode";
 export * from "./settings";
 export * from "./audit";

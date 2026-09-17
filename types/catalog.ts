@@ -51,6 +51,10 @@ export interface Variant {
   /** Nullable — stock is boolean unless a real count exists (CLAUDE.md §7.6). Never invent one. */
   stockQty: number | null;
   position: number;
+  /** This variant's own real pack photo (storage-resolved URL), when it has one — e.g. Blue Tea
+   * loose's 2-pack/4-pack. Null for every variant that has none; callers fall back to the
+   * product's shared primary image in that case. */
+  imageUrl: string | null;
 }
 
 export interface Product {

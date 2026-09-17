@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { CartPageClient } from "@/components/cart/CartPageClient";
 import { CartUpsells } from "@/components/cart/CartUpsells";
+import { EmptyCartBestsellers } from "@/components/cart/EmptyCartBestsellers";
 
 export const metadata = {
   title: "Your cart — Dishu Masala",
@@ -16,6 +17,11 @@ export default function CartPage() {
       upsells={
         <Suspense fallback={null}>
           <CartUpsells />
+        </Suspense>
+      }
+      bestsellers={
+        <Suspense fallback={null}>
+          <EmptyCartBestsellers />
         </Suspense>
       }
     />

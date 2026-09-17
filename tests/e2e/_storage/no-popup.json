@@ -1,0 +1,9 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:3000",
+      "localStorage": [{ "name": "dm_phone_popup_dismissed", "value": "1" }]
+    }
+  ]
+}

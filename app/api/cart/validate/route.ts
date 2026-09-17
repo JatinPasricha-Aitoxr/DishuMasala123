@@ -16,6 +16,7 @@ const requestSchema = z.object({
       z.object({
         variantId: z.number().int().positive(),
         qty: z.number().int().positive().max(99),
+        isGift: z.boolean().optional(),
       }),
     )
     .max(50),

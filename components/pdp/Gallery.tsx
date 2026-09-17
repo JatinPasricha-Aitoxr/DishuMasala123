@@ -1,10 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/Dialog";
 import { Placeholder } from "@/components/media/Placeholder";
-import { VisuallyHidden } from "@/components/ui/VisuallyHidden";
+import { ImageLightbox } from "./ImageLightbox";
 import { cn } from "@/lib/cn";
 
 export interface GallerySlide {
@@ -34,12 +33,20 @@ export function Gallery({ productName, slides, className }: GalleryProps) {
   const [zoomOpen, setZoomOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const mainRef = useRef<HTMLDivElement>(null);
+  const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const hasReal = slides.length > 0;
   const count = hasReal ? slides.length : 1;
   const current = hasReal ? slides[index] : null;
 
   const goTo = (i: number) => setIndex(((i % count) + count) % count);
+
+  // Keeps the active thumbnail in view as it scrolls with keyboard/swipe navigation — the rail
+  // itself scrolls (see the `overflow-x-auto` wrapper below) rather than pushing the page wider,
+  // so without this the active thumbnail could sit off-screen with no visual cue where it went.
+  useEffect(() => {
+    thumbRefs.current[index]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [index]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowRight") {
@@ -66,76 +73,98 @@ export function Gallery({ productName, slides, className }: GalleryProps) {
 
   const activeAlt = current?.alt ?? `${productName} — product photo (placeholder; real photography coming soon)`;
 
-  return (
-    <div className={cn("flex flex-col gap-3", className)}>
-      <div
-        ref={mainRef}
-        role="group"
-        aria-roledescription="image gallery"
-        aria-label={`${productName} photos`}
-        tabIndex={0}
-        onKeyDown={onKeyDown}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        onClick={() => setZoomOpen(true)}
-        className="relative w-full cursor-zoom-in overflow-hidden rounded-lg bg-surface-2 outline-none focus-visible:ring-2 focus-visible:ring-brew-2 focus-visible:ring-offset-2"
+  function Thumb(i: number, vertical: boolean) {
+    return (
+      <button
+        key={i}
+        ref={(el) => {
+          thumbRefs.current[i] = el;
+        }}
+        type="button"
+        role="tab"
+        aria-selected={i === index}
+        aria-label={`View photo ${i + 1} of ${count}`}
+        onClick={() => goTo(i)}
+        className={cn(
+          "shrink-0 overflow-hidden rounded-md border-2 transition-colors duration-[180ms]",
+          vertical ? "size-[72px]" : "size-16",
+          i === index ? "border-brew-2" : "border-transparent hover:border-line",
+        )}
         style={{ aspectRatio: "1 / 1" }}
       >
-        {current ? (
-          <Image
-            src={current.url}
-            alt={current.alt}
-            width={current.width}
-            height={current.height}
-            priority={index === 0}
-            className="h-full w-full object-cover"
-          />
+        {slides[i] ? (
+          <Image src={slides[i].url} alt="" width={72} height={72} className="h-full w-full object-cover" />
         ) : (
           <Placeholder slot="product-packshot-generic" className="h-full w-full" />
         )}
-        <span className="sr-only">{activeAlt}. Press Enter to zoom, arrow keys to browse.</span>
+      </button>
+    );
+  }
+
+  return (
+    <div className={cn("flex flex-col gap-3", className)}>
+      {/* Reference layout (blueteaindia.co.in): a vertical thumbnail rail sits to the LEFT of the
+       * large image on desktop, not below it — the thumbnail row below is kept for mobile/tablet,
+       * where a horizontal scroll strip under the image is the usable pattern. Both rails drive the
+       * same `index` state; only one is visible at a given breakpoint. */}
+      <div className="flex flex-row-reverse gap-3">
+        <div
+          ref={mainRef}
+          role="group"
+          aria-roledescription="image gallery"
+          aria-label={`${productName} photos`}
+          tabIndex={0}
+          onKeyDown={onKeyDown}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+          onClick={() => setZoomOpen(true)}
+          className="relative min-w-0 flex-1 cursor-zoom-in overflow-hidden rounded-lg bg-surface-2 outline-none focus-visible:ring-2 focus-visible:ring-brew-2 focus-visible:ring-offset-2"
+          style={{ aspectRatio: "1 / 1" }}
+        >
+          {current ? (
+            <Image
+              src={current.url}
+              alt={current.alt}
+              width={current.width}
+              height={current.height}
+              priority={index === 0}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <Placeholder slot="product-packshot-generic" className="h-full w-full" />
+          )}
+          <span className="sr-only">{activeAlt}. Press Enter to zoom, arrow keys to browse.</span>
+        </div>
+
+        {count > 1 && (
+          <div
+            role="tablist"
+            aria-label="Product photos"
+            className="hidden max-h-full flex-col gap-2.5 overflow-y-auto pr-0.5 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex [&::-webkit-scrollbar]:hidden"
+          >
+            {Array.from({ length: count }, (_, i) => Thumb(i, true))}
+          </div>
+        )}
       </div>
 
       {count > 1 && (
-        <div role="tablist" aria-label="Product photos" className="flex gap-2">
-          {Array.from({ length: count }, (_, i) => (
-            <button
-              key={i}
-              type="button"
-              role="tab"
-              aria-selected={i === index}
-              aria-label={`View photo ${i + 1} of ${count}`}
-              onClick={() => goTo(i)}
-              className={cn(
-                "size-16 shrink-0 overflow-hidden rounded-md border-2 transition-colors duration-[180ms]",
-                i === index ? "border-brew-2" : "border-transparent hover:border-line",
-              )}
-              style={{ aspectRatio: "1 / 1" }}
-            >
-              {slides[i] ? (
-                <Image src={slides[i].url} alt="" width={64} height={64} className="h-full w-full object-cover" />
-              ) : (
-                <Placeholder slot="product-packshot-generic" className="h-full w-full" />
-              )}
-            </button>
-          ))}
+        <div
+          role="tablist"
+          aria-label="Product photos"
+          className="flex gap-2 overflow-x-auto overscroll-x-contain scroll-smooth pb-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden"
+        >
+          {Array.from({ length: count }, (_, i) => Thumb(i, false))}
         </div>
       )}
 
-      <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
-        <DialogContent className="max-w-2xl bg-surface p-2">
-          <VisuallyHidden>
-            <DialogTitle>{activeAlt}</DialogTitle>
-          </VisuallyHidden>
-          <div className="relative w-full overflow-hidden rounded-md" style={{ aspectRatio: "1 / 1" }}>
-            {current ? (
-              <Image src={current.url} alt={current.alt} fill className="object-contain" />
-            ) : (
-              <Placeholder slot="product-packshot-generic" className="h-full w-full" />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ImageLightbox
+        open={zoomOpen}
+        onOpenChange={setZoomOpen}
+        slides={slides}
+        index={index}
+        onIndexChange={goTo}
+        title={activeAlt}
+      />
     </div>
   );
 }

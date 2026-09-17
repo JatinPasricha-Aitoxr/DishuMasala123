@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "bundle_discount_paise" integer DEFAULT 0 NOT NULL;

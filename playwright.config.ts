@@ -16,6 +16,12 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
+    // Pre-dismisses components/marketing/PhoneCapturePopup.tsx for every test: it opens 5s after
+    // landing, timed for a real visitor, not a test suite — a test that takes longer than that
+    // (a review form, a multi-step checkout) would otherwise get its own click swallowed by the
+    // popup's overlay, exactly the kind of flaky, hard-to-diagnose failure a real QA suite avoids
+    // by suppressing marketing popups in its test sessions rather than working around them per spec.
+    storageState: "tests/e2e/_storage/no-popup.json",
   },
   projects: [
     {

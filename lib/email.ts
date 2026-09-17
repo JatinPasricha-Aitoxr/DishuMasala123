@@ -18,6 +18,7 @@ import PaymentReceivedEmail from "@/emails/PaymentReceived";
 import OrderShippedEmail from "@/emails/OrderShipped";
 import OrderDeliveredEmail from "@/emails/OrderDelivered";
 import OrderCancelledEmail from "@/emails/OrderCancelled";
+import NewOrderReceivedEmail from "@/emails/NewOrderReceived";
 import VerifyEmail from "@/emails/VerifyEmail";
 import ResetPasswordEmail from "@/emails/ResetPassword";
 import type { Order } from "@/types/order";
@@ -80,6 +81,18 @@ export async function sendOrderDeliveredEmail(order: Order): Promise<EmailSendRe
 
 export async function sendOrderCancelledEmail(order: Order, reason?: string | null): Promise<EmailSendResult> {
   return send(order.email, `Order cancelled — ${order.orderNumber}`, OrderCancelledEmail({ order, reason }), "order-cancelled");
+}
+
+/** The one email in this file addressed to staff, not a shopper — `to` is
+ * `settings.store_address.email`, read by the caller (lib/commerce/order-fulfillment.ts), never
+ * `order.email`. */
+export async function sendNewOrderStaffEmail(to: string, order: Order, adminOrderUrl: string): Promise<EmailSendResult> {
+  return send(
+    to,
+    `New order — ${order.orderNumber} (${order.paymentMethod === "cod" ? "COD" : "paid"})`,
+    NewOrderReceivedEmail({ order, adminOrderUrl }),
+    "new-order-staff",
+  );
 }
 
 /** Account emails (PROMPTS.md Phase 6 item 1) — same degrade-to-log-not-send behaviour as every

@@ -15,10 +15,19 @@
 import { paise, sumPaise, type Paise } from "@/lib/money";
 import type { VariantPricingRow } from "@/lib/db/queries/variants";
 import type { CouponRow } from "@/lib/db/queries/coupons";
+import { TEA_COLLECTION_SLUGS, MASALA_COLLECTION_SLUGS } from "@/lib/nav";
 
 export interface PricingLineInput {
   variantId: number;
   qty: number;
+  /** Requests this line be priced as the free-gift-on-a-qualifying-order line (client request,
+   * 2026-09-17) — never trusted at face value (CLAUDE.md §7.5): `computePricing` re-checks the
+   * variant is actually gift-eligible (a real 100g spice variant) and that the REST of the cart
+   * (excluding this line) already clears `getFreeGiftThresholdPaise()` before honouring it. At
+   * most one gift line survives per cart; a second gift request, or a gift request for the wrong
+   * kind of variant, or one made below the threshold, is dropped with a `PricingIssue` explaining
+   * why, never silently repriced as a normal paid line. */
+  isGift?: boolean;
 }
 
 export interface PricingInput {
@@ -41,6 +50,7 @@ export interface PricingLine {
   /** Display-only (CLAUDE.md §7.2 priority) — passed through so the cart's upsell rail can sort
    * without a second query; never part of any money computation. */
   priority: number;
+  collectionSlug: string;
   sku: string;
   optionValue: string;
   mrpPaise: Paise;
@@ -50,13 +60,20 @@ export interface PricingLine {
   requestedQty: number;
   lineTotalPaise: Paise;
   imageStorageKey: string | null;
+  /** True only for the one surviving free-gift line, if any — `unitPricePaise` is always 0 for
+   * such a line, `mrpPaise` is still the variant's real MRP (so the UI can show it struck through
+   * next to "FREE"). Excluded from coupon `applies_to`/cross-pillar-bundle eligibility checks
+   * below so a free item can't be used to unlock a discount it didn't actually qualify for. */
+  isGift: boolean;
 }
 
 export type PricingIssue =
   | { type: "variant_not_found"; variantId: number }
   | { type: "out_of_stock"; variantId: number; productName: string }
   | { type: "insufficient_stock"; variantId: number; productName: string; requestedQty: number; availableQty: number }
-  | { type: "coupon_invalid"; code: string; reason: CouponRejectReason };
+  | { type: "coupon_invalid"; code: string; reason: CouponRejectReason }
+  | { type: "gift_not_eligible"; variantId: number }
+  | { type: "gift_threshold_not_met"; variantId: number; thresholdPaise: Paise };
 
 export type CouponRejectReason =
   | "not_found"
@@ -73,6 +90,14 @@ export interface PricingResult {
   lines: PricingLine[];
   subtotalPaise: Paise;
   discountPaise: Paise;
+  /** The automatic cross-pillar bundle discount (CLAUDE.md §7.2's 2026-09-10 amendment) — a
+   * distinct, server-computed line, deliberately never folded into `discountPaise`/`couponCode`:
+   * those two are reserved for manually-entered coupon codes (the `coupons` table). This is
+   * structural and automatic, has no code, and does not touch `coupons`/`coupon_redemptions`. */
+  crossPillarDiscountPaise: Paise;
+  /** True only when `crossPillarDiscountPaise > 0` — lets a UI show/hide the row without
+   * re-deriving the rule itself. */
+  crossPillarApplied: boolean;
   shippingPaise: Paise;
   totalPaise: Paise;
   /** Sum of (mrp - price) * qty across priced lines — "you saved ₹X vs MRP", independent of any coupon. */
@@ -80,6 +105,13 @@ export interface PricingResult {
   couponCode: string | null;
   freeShippingThresholdPaise: Paise;
   rupeesToFreeShippingPaise: Paise;
+  /** `null` until the free-gift promotion has a real settings value (lib/db/queries/settings.ts's
+   * `getFreeGiftThresholdPaise`) — the cart UI uses this, not a client-side guess, to decide when
+   * to show the "choose your free gift" popup/progress. */
+  freeGiftThresholdPaise: Paise | null;
+  /** True only when one of `lines` is the surviving free-gift line — a plain derived flag so a
+   * component doesn't need to `.some(l => l.isGift)` itself. */
+  hasFreeGift: boolean;
   issues: PricingIssue[];
   /** True only when every input line priced exactly as requested and any submitted coupon was
    * accepted — i.e. nothing needed correcting. Callers (checkout route) use this to decide whether
@@ -92,19 +124,73 @@ export interface PricingDeps {
   getCoupon: (code: string) => Promise<CouponRow | null>;
   getFreeShippingThresholdPaise: () => Promise<Paise>;
   getStandardShippingPaise: () => Promise<Paise>;
+  /** Whole-number percent for the automatic cross-pillar bundle discount (CLAUDE.md §7.2's
+   * 2026-09-10 amendment) — read from `settings`, never a hardcoded literal in this file. */
+  getCrossPillarBundleDiscountPercent: () => Promise<number>;
   countCouponRedemptionsByEmail: (couponId: number, email: string) => Promise<number>;
   hasAnyOrderForEmail: (email: string) => Promise<boolean>;
+  /** `null` (never a fabricated threshold) until the client's free-gift promotion actually has a
+   * real settings value — see lib/db/queries/settings.ts's own doc for why. */
+  getFreeGiftThresholdPaise: () => Promise<Paise | null>;
+}
+
+interface NormalizedLine {
+  variantId: number;
+  qty: number;
+  isGift: boolean;
 }
 
 /** Merges duplicate variant ids in the input (two lines for the same variant is the same as one
- * line with the summed quantity) and drops non-positive quantities. */
-function normalizeLines(lines: PricingLineInput[]): PricingLineInput[] {
-  const byVariant = new Map<number, number>();
+ * line with the summed quantity), drops non-positive quantities, and — separately — collapses
+ * every `isGift` request down to at most one candidate line (the first one seen): a cart can only
+ * ever carry one free gift, so a client sending several is a bug or an attempted abuse, never a
+ * cue to grant more than one. */
+function normalizeLines(lines: PricingLineInput[]): NormalizedLine[] {
+  const byVariant = new Map<number, { qty: number; isGift: boolean }>();
+  let giftVariantId: number | null = null;
   for (const line of lines) {
     if (!Number.isInteger(line.variantId) || !Number.isInteger(line.qty) || line.qty <= 0) continue;
-    byVariant.set(line.variantId, (byVariant.get(line.variantId) ?? 0) + line.qty);
+    const wantsGift = !!line.isGift && (giftVariantId === null || giftVariantId === line.variantId);
+    if (wantsGift) giftVariantId = line.variantId;
+    const existing = byVariant.get(line.variantId);
+    byVariant.set(line.variantId, {
+      qty: (existing?.qty ?? 0) + line.qty,
+      isGift: (existing?.isGift ?? false) || wantsGift,
+    });
   }
-  return Array.from(byVariant, ([variantId, qty]) => ({ variantId, qty }));
+  return Array.from(byVariant, ([variantId, v]) => ({ variantId, qty: v.qty, isGift: v.isGift }));
+}
+
+/** A gift's "pillar" for the exclusion rule below — Tea's three pillars (blue-tea, red-tea,
+ * classic-teas) plus spices, matching `lib/db/queries/free-gift.ts`'s own `GiftPillar` type. */
+type GiftPillar = "blue-tea" | "red-tea" | "spices" | "classic-teas";
+
+/** The exact SKUs the client chose as free-gift options (2026-09-17) — a fixed allowlist, not a
+ * generic "any 100g spice" rule: only Coriander/Turmeric/Red Chilli (not Black Pepper or Garam
+ * Masala) for spices, and a genuinely smaller "20 gm" pack for the two loose teas. Kept in sync by
+ * hand with `lib/db/queries/free-gift.ts#GIFT_SKUS` (the menu shown) — this is the version that
+ * actually gets enforced. */
+const FREE_GIFT_SKUS: Record<string, GiftPillar> = {
+  "0023-20-gm": "blue-tea",
+  "0032-20-gm": "red-tea",
+  "0026-100-gm": "spices",
+  "0021-100-gm": "spices",
+  "0022-100-gm": "spices",
+  "0030-100-gm": "classic-teas",
+  "0035-100-gm": "classic-teas",
+};
+
+function giftPillarOf(v: VariantPricingRow): GiftPillar | null {
+  return FREE_GIFT_SKUS[v.sku] ?? null;
+}
+
+/** A product's own pillar, for the "don't gift what's already being bought" rule — the same three
+ * tea pillars plus spices, derived from its real `collectionSlug` (no separate mapping to invent
+ * or drift out of sync). */
+function cartPillarOf(collectionSlug: string): GiftPillar | null {
+  if (collectionSlug === "blue-tea" || collectionSlug === "red-tea" || collectionSlug === "classic-teas") return collectionSlug;
+  if (collectionSlug === "spices") return "spices";
+  return null; // "combos" (or anything else) has no defined gift-exclusion rule — not guessed at.
 }
 
 export interface CouponContext {
@@ -191,6 +277,28 @@ export function computeCouponDiscountPaise(coupon: CouponRow, subtotalPaise: Pai
 }
 
 /**
+ * The automatic cross-pillar bundle discount (CLAUDE.md §7.2's 2026-09-10 amendment): when the
+ * priced cart contains at least one Tea-pillar line and at least one Masala-pillar line, apply
+ * `percent`% off the single cheapest qualifying unit in the cart. Deliberately the simpler of the
+ * two options considered (a `max_discount_paise`-style cap, like `coupons`, was the other) — a
+ * straight percent off one unit is easy for a shopper to verify by eye ("that's 10% off my
+ * cheapest item") and needs no second settings key to reason about, at the cost of being a smaller
+ * absolute discount on a large cart than a subtotal-percentage would give; revisit if the client
+ * wants the bigger-basket incentive instead. Pure — no I/O, takes already-priced lines and the
+ * settings-derived percent, so it's unit-testable with no database in the loop.
+ */
+function computeCrossPillarDiscountPaise(lines: PricingLine[], percent: number): Paise {
+  if (percent <= 0 || lines.length === 0) return paise(0);
+
+  const hasTea = lines.some((l) => TEA_COLLECTION_SLUGS.has(l.collectionSlug));
+  const hasMasala = lines.some((l) => MASALA_COLLECTION_SLUGS.has(l.collectionSlug));
+  if (!hasTea || !hasMasala) return paise(0);
+
+  const cheapestUnitPaise = Math.min(...lines.map((l) => l.unitPricePaise));
+  return paise(Math.round((cheapestUnitPaise * percent) / 100));
+}
+
+/**
  * The pricing engine. Re-reads every variant fresh from Postgres (via `deps`), clamps quantities
  * to real stock, prices only what's actually purchasable, evaluates an optional coupon against
  * every rule, and returns a fully server-computed breakdown plus a list of everything that had to
@@ -201,11 +309,17 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
   const normalized = normalizeLines(input.lines);
   const issues: PricingIssue[] = [];
 
-  const variantRows = await deps.getVariants(normalized.map((l) => l.variantId));
+  const [variantRows, freeGiftThresholdPaise] = await Promise.all([
+    deps.getVariants(normalized.map((l) => l.variantId)),
+    deps.getFreeGiftThresholdPaise(),
+  ]);
   const byId = new Map(variantRows.map((v) => [v.variantId, v]));
 
   const lines: PricingLine[] = [];
-  for (const { variantId, qty: requestedQty } of normalized) {
+  const regularNormalized = normalized.filter((l) => !l.isGift);
+  const giftCandidate = normalized.find((l) => l.isGift);
+
+  for (const { variantId, qty: requestedQty } of regularNormalized) {
     const v = byId.get(variantId);
     if (!v) {
       issues.push({ type: "variant_not_found", variantId });
@@ -233,6 +347,7 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
       collectionId: v.collectionId,
       productName: v.productName,
       priority: v.priority,
+      collectionSlug: v.collectionSlug,
       sku: v.sku,
       optionValue: v.optionValue,
       mrpPaise: v.mrpPaise,
@@ -241,11 +356,61 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
       requestedQty,
       lineTotalPaise: paise(v.pricePaise * qty),
       imageStorageKey: v.imageStorageKey,
+      isGift: false,
     });
+  }
+
+  // The free-gift line, evaluated against the REST of the cart only (never itself, and never a
+  // client-supplied flag alone — CLAUDE.md §7.5): one of the real, allowlisted gift SKUs, in
+  // stock, from a pillar NOT already present in the paid cart (client rule, 2026-09-17 — buying
+  // Blue Tea offers Red Tea/Spices/Black Tea as gifts, never another Blue Tea), only once the paid
+  // subtotal above already clears the real settings threshold.
+  if (giftCandidate) {
+    const { variantId, qty: requestedQty } = giftCandidate;
+    const v = byId.get(variantId);
+    const regularSubtotalSoFarPaise = sumPaise(lines.map((l) => l.lineTotalPaise));
+    const paidPillars = new Set(lines.map((l) => cartPillarOf(l.collectionSlug)).filter((p): p is GiftPillar => p != null));
+    const giftPillar = v ? giftPillarOf(v) : null;
+    if (!v) {
+      issues.push({ type: "variant_not_found", variantId });
+    } else if (!v.inStock) {
+      issues.push({ type: "out_of_stock", variantId, productName: v.productName });
+    } else if (giftPillar == null || paidPillars.has(giftPillar)) {
+      // Either not one of the allowlisted gift SKUs at all, or it belongs to a pillar the shopper
+      // is already buying (e.g. requesting the Blue Tea 20g gift while Blue Tea is in the cart) —
+      // both are "not a valid gift for this cart" from the shopper's point of view.
+      issues.push({ type: "gift_not_eligible", variantId });
+    } else {
+      if (freeGiftThresholdPaise == null || regularSubtotalSoFarPaise < freeGiftThresholdPaise) {
+        issues.push({ type: "gift_threshold_not_met", variantId, thresholdPaise: freeGiftThresholdPaise ?? paise(0) });
+      } else {
+        lines.push({
+          variantId: v.variantId,
+          productId: v.productId,
+          collectionId: v.collectionId,
+          productName: v.productName,
+          priority: v.priority,
+          collectionSlug: v.collectionSlug,
+          sku: v.sku,
+          optionValue: v.optionValue,
+          mrpPaise: v.mrpPaise,
+          unitPricePaise: paise(0),
+          qty: 1,
+          requestedQty,
+          lineTotalPaise: paise(0),
+          imageStorageKey: v.imageStorageKey,
+          isGift: true,
+        });
+      }
+    }
   }
 
   const subtotalPaise = sumPaise(lines.map((l) => l.lineTotalPaise));
   const savingsPaise = sumPaise(lines.map((l) => paise((l.mrpPaise - l.unitPricePaise) * l.qty)));
+  // Coupon/cross-pillar eligibility both read from paid lines only — a free gift can't be used to
+  // unlock a discount (a Tea+Masala cross-pillar bonus, an `applies_to` coupon) it didn't actually
+  // qualify the cart for.
+  const paidLines = lines.filter((l) => !l.isGift);
 
   let discountPaise: Paise = paise(0);
   let couponCode: string | null = null;
@@ -264,8 +429,8 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
       totalRedemptions: coupon?.usedCount ?? 0,
       userRedemptions,
       hasEmail,
-      cartProductIds: Array.from(new Set(lines.map((l) => l.productId))),
-      cartCollectionIds: Array.from(new Set(lines.map((l) => l.collectionId))),
+      cartProductIds: Array.from(new Set(paidLines.map((l) => l.productId))),
+      cartCollectionIds: Array.from(new Set(paidLines.map((l) => l.collectionId))),
     };
     const verdict = validateCoupon(coupon, ctx);
     if (verdict.ok && coupon) {
@@ -276,9 +441,10 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
     }
   }
 
-  const [freeShippingThresholdPaise, standardShippingPaise] = await Promise.all([
+  const [freeShippingThresholdPaise, standardShippingPaise, crossPillarPercent] = await Promise.all([
     deps.getFreeShippingThresholdPaise(),
     deps.getStandardShippingPaise(),
+    deps.getCrossPillarBundleDiscountPercent(),
   ]);
   // Free-shipping eligibility is judged on the undiscounted subtotal — "spend ₹500" means cart
   // value, not the post-coupon amount — matching the cart drawer's progress bar, which has no
@@ -286,7 +452,10 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
   const shippingPaise: Paise = subtotalPaise >= freeShippingThresholdPaise ? paise(0) : standardShippingPaise;
   const rupeesToFreeShippingPaise: Paise = paise(Math.max(0, freeShippingThresholdPaise - subtotalPaise));
 
-  const totalPaise = paise(subtotalPaise - discountPaise + shippingPaise);
+  const crossPillarDiscountPaise = computeCrossPillarDiscountPaise(paidLines, crossPillarPercent);
+  const crossPillarApplied = crossPillarDiscountPaise > 0;
+
+  const totalPaise = paise(subtotalPaise - discountPaise - crossPillarDiscountPaise + shippingPaise);
 
   const requestedCouponRejected = !!requestedCode && couponCode === null;
   const anyStockIssue = issues.some((i) => i.type !== "coupon_invalid");
@@ -296,12 +465,16 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
     lines,
     subtotalPaise,
     discountPaise,
+    crossPillarDiscountPaise,
+    crossPillarApplied,
     shippingPaise,
     totalPaise,
     savingsPaise,
     couponCode,
     freeShippingThresholdPaise,
     rupeesToFreeShippingPaise,
+    freeGiftThresholdPaise,
+    hasFreeGift: lines.some((l) => l.isGift),
     issues,
     clean,
   };

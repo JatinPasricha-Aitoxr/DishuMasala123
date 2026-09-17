@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getProductBySlug } from "@/lib/db/queries/product-detail";
 import { formatINR } from "@/lib/money";
+import { DESIGN_TOKEN_HEX } from "@/lib/design-tokens";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -24,21 +25,29 @@ export default async function OpengraphImage({ params }: { params: Promise<{ slu
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          backgroundColor: "#FCFAF6",
+          backgroundColor: DESIGN_TOKEN_HEX.bg,
           padding: "72px",
           fontFamily: "sans-serif",
         }}
       >
-        <div style={{ display: "flex", width: 120, height: 6, borderRadius: 3, backgroundImage: "linear-gradient(100deg, #123FA8, #2E5BE0, #6C3FD1, #A62D9B, #D62A6B, #F3C623)" }} />
+        <div
+          style={{
+            display: "flex",
+            width: 120,
+            height: 6,
+            borderRadius: 3,
+            backgroundImage: `linear-gradient(100deg, ${DESIGN_TOKEN_HEX["brew-1"]}, ${DESIGN_TOKEN_HEX["brew-2"]}, ${DESIGN_TOKEN_HEX["brew-3"]}, ${DESIGN_TOKEN_HEX["brew-4"]}, ${DESIGN_TOKEN_HEX["brew-5"]}, ${DESIGN_TOKEN_HEX.citrus})`,
+          }}
+        />
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "flex", fontSize: 24, color: "#7C7885", letterSpacing: 2, textTransform: "uppercase" }}>
+          <div style={{ display: "flex", fontSize: 24, color: DESIGN_TOKEN_HEX["ink-3"], letterSpacing: 2, textTransform: "uppercase" }}>
             Dishu Masala
           </div>
-          <div style={{ display: "flex", fontSize: 56, fontWeight: 600, color: "#17161A", lineHeight: 1.15, maxWidth: 980 }}>
+          <div style={{ display: "flex", fontSize: 56, fontWeight: 600, color: DESIGN_TOKEN_HEX.ink, lineHeight: 1.15, maxWidth: 980 }}>
             {product?.name ?? "Dishu Masala"}
           </div>
           {price != null && (
-            <div style={{ display: "flex", fontSize: 36, fontWeight: 600, color: "#17161A" }}>
+            <div style={{ display: "flex", fontSize: 36, fontWeight: 600, color: DESIGN_TOKEN_HEX.ink }}>
               {formatINR(price)}
             </div>
           )}

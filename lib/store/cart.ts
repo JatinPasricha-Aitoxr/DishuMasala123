@@ -17,6 +17,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { PricingResult } from "@/lib/commerce/pricing";
+import { formatINR } from "@/lib/money";
 
 export interface CartLine {
   variantId: number;
@@ -35,6 +36,13 @@ export interface CartLine {
    * to /api/cart/validate and never part of the order snapshot (lib/db/mutations/orders.ts writes
    * order_items.image_storage_key from the server's own re-derived pricing, not from this field). */
   imageUrl: string | null;
+  /** Requests this line be priced as the free-gift line (client request, 2026-09-17) — set locally
+   * when the shopper picks one from FreeGiftPopup, but never trusted at face value: `revalidate()`
+   * sends it to `/api/cart/validate`, and `applyPricingCorrections` below removes this line
+   * entirely (with a plain-language notice) if the server didn't actually honour it — CLAUDE.md
+   * §7.5's "never trust a price from the client" applies just as much to "is this free" as it does
+   * to any other price. Omitted (not `false`) on every ordinary line. */
+  isGift?: boolean;
 }
 
 export interface CartNotice {
@@ -57,6 +65,9 @@ interface AddItemInput {
    * to /api/cart/validate and never part of the order snapshot (lib/db/mutations/orders.ts writes
    * order_items.image_storage_key from the server's own re-derived pricing, not from this field). */
   imageUrl: string | null;
+  /** Set by FreeGiftPopup when the shopper picks their free gift — see CartLine's own doc for why
+   * this is still fully re-verified server-side on the very next `revalidate()`. */
+  isGift?: boolean;
 }
 
 export interface CartState {
@@ -123,7 +134,7 @@ async function fetchValidation(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        lines: lines.map((l) => ({ variantId: l.variantId, qty: l.qty })),
+        lines: lines.map((l) => ({ variantId: l.variantId, qty: l.qty, isGift: l.isGift })),
         couponCode,
         email,
       }),
@@ -162,6 +173,15 @@ export function applyPricingCorrections(
     } else if (issue.type === "coupon_invalid") {
       couponRejected = true;
       notices.push({ id: nextNoticeId(), message: couponInvalidMessage(issue.code, issue.reason) });
+    } else if (issue.type === "gift_threshold_not_met") {
+      next = next.filter((l) => l.variantId !== issue.variantId);
+      notices.push({
+        id: nextNoticeId(),
+        message: `Your free gift was removed — your order needs to be ${formatINR(issue.thresholdPaise)} or more.`,
+      });
+    } else if (issue.type === "gift_not_eligible") {
+      next = next.filter((l) => l.variantId !== issue.variantId);
+      notices.push({ id: nextNoticeId(), message: "That item isn't eligible as a free gift and was removed." });
     }
   }
 
@@ -180,7 +200,14 @@ export function applyPricingCorrections(
   next = next.map((l) => {
     const priced = pricing.lines.find((p) => p.variantId === l.variantId);
     return priced
-      ? { ...l, unitPricePaise: priced.unitPricePaise, mrpPaise: priced.mrpPaise, productId: priced.productId, priority: priced.priority }
+      ? {
+          ...l,
+          unitPricePaise: priced.unitPricePaise,
+          mrpPaise: priced.mrpPaise,
+          productId: priced.productId,
+          priority: priced.priority,
+          isGift: priced.isGift,
+        }
       : l;
   });
 
@@ -348,4 +375,25 @@ export function selectRupeesToFreeShippingPaise(state: CartSnapshot): number | n
 
 export function selectTotalPaise(state: CartSnapshot): number | null {
   return state.pricing?.totalPaise ?? null;
+}
+
+/** `null` until the free-gift promotion has a real settings value — see PricingResult's own doc. */
+export function selectFreeGiftThresholdPaise(state: CartSnapshot): number | null {
+  return state.pricing?.freeGiftThresholdPaise ?? null;
+}
+
+/** True once the (non-gift) subtotal has cleared the free-gift threshold — the exact cue
+ * FreeGiftPopup uses to decide whether to offer choosing one, whether or not a gift is already in
+ * the cart (checked separately via `selectHasFreeGift`). Never true before the server confirms it
+ * (`pricing` must exist, CLAUDE.md §7.5), so this only ever reflects a real, server-derived
+ * subtotal, not an optimistic local one. */
+export function selectFreeGiftEligible(state: CartSnapshot): boolean {
+  const threshold = state.pricing?.freeGiftThresholdPaise;
+  if (threshold == null || state.pricing == null) return false;
+  const nonGiftSubtotal = state.pricing.lines.filter((l) => !l.isGift).reduce((sum, l) => sum + l.lineTotalPaise, 0);
+  return nonGiftSubtotal >= threshold;
+}
+
+export function selectHasFreeGift(state: CartSnapshot): boolean {
+  return state.pricing?.hasFreeGift ?? state.lines.some((l) => l.isGift);
 }

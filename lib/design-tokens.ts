@@ -1,15 +1,17 @@
 /**
- * A read-only mirror of the hex values in app/globals.css's `@theme` block, kept ONLY so
- * app/design-system/page.tsx can compute real WCAG contrast ratios at build/render time (CSS
- * custom properties aren't readable as numbers on the server). This is the one deliberate,
- * documented exception to "no hex literals" — it lives outside components/ (the acceptance-check
- * grep is scoped to components/), is never imported by anything that renders a color itself
- * (components always reference the CSS variable, never this file), and exists purely for contrast
- * arithmetic and the palette table on the dev-only design-system page.
+ * A read-only mirror of the hex values in app/globals.css's `@theme` block. This is the one
+ * deliberate, documented exception to "no hex literals" — for the narrow set of contexts that
+ * genuinely cannot consume a CSS custom property, because nothing on the page's own DOM/CSS ever
+ * runs: app/design-system/page.tsx's real WCAG contrast arithmetic; next/og's Satori renderer
+ * (app/product/[slug]/opengraph-image.tsx), which paints to an image buffer, not a browser; and
+ * third-party SDK config objects that take a literal colour string, not a class or a var()
+ * (components/checkout/RazorpayButton.tsx's `theme.color`, rendered inside Razorpay's own iframe).
+ * Every other component keeps referencing the CSS variable/utility class as normal — this file
+ * exists so those few exceptions have one canonical source instead of each re-typing its own copy
+ * of the same hex values.
  *
- * If a value here ever drifts from app/globals.css, the design-system page's contrast numbers are
- * wrong — keep the two in sync by hand until there's a build step that generates one from the
- * other.
+ * If a value here ever drifts from app/globals.css, every one of the above goes wrong quietly —
+ * keep the two in sync by hand until there's a build step that generates one from the other.
  */
 export const DESIGN_TOKEN_HEX = {
   "bg": "#FCFAF6",
@@ -38,3 +40,29 @@ export const DESIGN_TOKEN_HEX = {
 } as const;
 
 export type DesignTokenName = keyof typeof DESIGN_TOKEN_HEX;
+
+/**
+ * Section vertical rhythm — the one scale every homepage/landing section uses.
+ *
+ * Added 2026-09-17. Before this the homepage ran five competing rhythms (`py-32` on the three
+ * colour bands, `py-24` on FounderStory, `py-20`, `py-16`, `py-14`, `py-10`), which is most of why
+ * the page measured 11,012px against the reference site's 6,094px, and why the bands showed large
+ * empty runs of colour above and below their content.
+ *
+ * Mobile-first: the base value is the phone value and each step only grows from there. Three steps,
+ * deliberately — a fourth would just re-open the drift this replaces.
+ *
+ * - `COMPACT`  strips and rails that sit between larger sections (category circles, logo strips)
+ * - `SECTION`  the default for ordinary content sections
+ * - `BAND`     full-bleed colour/editorial bands that genuinely need more air around them
+ *
+ * Applied as a plain class string so it composes with `cn()` and stays greppable:
+ *   <section className={cn(SECTION_SPACING.BAND, "bg-brew-2")}>
+ */
+export const SECTION_SPACING = {
+  COMPACT: "py-8 sm:py-10",
+  SECTION: "py-12 sm:py-14 lg:py-16",
+  BAND: "py-14 sm:py-16 lg:py-20",
+} as const;
+
+export type SectionSpacingName = keyof typeof SECTION_SPACING;

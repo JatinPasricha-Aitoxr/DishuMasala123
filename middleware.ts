@@ -35,6 +35,28 @@ function redirectToLogin(request: NextRequest, pathname: string) {
   return NextResponse.redirect(signIn);
 }
 
+const VISITOR_COOKIE = "visitor_id";
+
+/** A random, first-party id for the on-site activity log (lib/db/schema/marketing.ts) and the
+ * landing popup's "already answered" check — httpOnly since nothing on the client ever needs to
+ * read the raw value itself (app/api/track/route.ts and the phone-lead route both read it
+ * server-side off the request). Uses the Web Crypto global, not `node:crypto` — middleware runs on
+ * the Edge runtime, which has the former but not the latter. Runs on every response this function
+ * returns, not just the two most-visited paths, so a legacy-URL redirect or a canonicalisation hop
+ * on someone's very first request still gets a cookie instead of silently never getting one. */
+function ensureVisitorCookie(request: NextRequest, response: NextResponse): NextResponse {
+  if (!request.cookies.get(VISITOR_COOKIE)) {
+    response.cookies.set(VISITOR_COOKIE, crypto.randomUUID(), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 365,
+      path: "/",
+    });
+  }
+  return response;
+}
+
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -51,7 +73,7 @@ export default async function middleware(request: NextRequest) {
   // from scratch is unambiguous. Query strings are carried over deliberately: old campaign links
   // hold ?utm_* that analytics still wants to see on the destination.
   const redirectTo = (to: string) =>
-    NextResponse.redirect(new URL(`${to}${request.nextUrl.search}`, request.nextUrl.origin), 301);
+    ensureVisitorCookie(request, NextResponse.redirect(new URL(`${to}${request.nextUrl.search}`, request.nextUrl.origin), 301));
 
   if (legacyTarget && legacyTarget !== pathname) return redirectTo(legacyTarget);
 
@@ -63,7 +85,7 @@ export default async function middleware(request: NextRequest) {
   const needsSignIn = needsRole || pathname.startsWith("/account");
 
   // Nothing else to do for public pages — no Supabase client, no round-trip.
-  if (!needsSignIn) return NextResponse.next({ request });
+  if (!needsSignIn) return ensureVisitorCookie(request, NextResponse.next({ request }));
 
   // ---- 2. Session refresh ---------------------------------------------------------------------
   let response = NextResponse.next({ request });
@@ -107,7 +129,7 @@ export default async function middleware(request: NextRequest) {
     }
   }
 
-  return response;
+  return ensureVisitorCookie(request, response);
 }
 
 export const config = {

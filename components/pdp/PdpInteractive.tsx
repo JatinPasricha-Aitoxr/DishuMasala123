@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BuyBox, type AddToCartPayload } from "@/components/pdp/BuyBox";
 import { StickyAddToCart } from "@/components/pdp/StickyAddToCart";
 import { useCartStore } from "@/lib/store/cart";
+import { trackViewContent, trackAddToCart } from "@/lib/meta-pixel";
+import type { Paise } from "@/lib/money";
 import type { Variant } from "@/types/catalog";
 
 const BUY_BOX_ID = "pdp-buy-box";
@@ -17,6 +19,7 @@ export interface PdpInteractiveProps {
   primaryImageUrl: string | null;
   reviewCount: number;
   reviewAverage: number;
+  freeShippingThresholdPaise: Paise;
 }
 
 /**
@@ -35,6 +38,7 @@ export function PdpInteractive({
   primaryImageUrl,
   reviewCount,
   reviewAverage,
+  freeShippingThresholdPaise,
 }: PdpInteractiveProps) {
   const addItem = useCartStore((s) => s.addItem);
   const [payload, setPayload] = useState<AddToCartPayload | null>(() => {
@@ -43,6 +47,20 @@ export function PdpInteractive({
   });
 
   const selectedVariant = variants.find((v) => v.id === payload?.variantId) ?? variants[0];
+
+  // Fires once per page load, off the variant this page actually rendered with (not whatever gets
+  // selected afterward) — matches Meta's own "ViewContent = viewed this product's page" semantics.
+  useEffect(() => {
+    if (!selectedVariant) return;
+    trackViewContent({
+      content_ids: [selectedVariant.sku],
+      content_type: "product",
+      content_name: productName,
+      value: selectedVariant.pricePaise / 100,
+      currency: "INR",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally once on mount, using whatever variant was selected at that moment
+  }, []);
 
   const addToCart = (p: AddToCartPayload) => {
     const variant = variants.find((v) => v.id === p.variantId);
@@ -59,6 +77,13 @@ export function PdpInteractive({
       unitPricePaise: variant.pricePaise,
       imageUrl: primaryImageUrl,
     });
+    trackAddToCart({
+      content_ids: [variant.sku],
+      content_type: "product",
+      content_name: productName,
+      value: (variant.pricePaise * p.qty) / 100,
+      currency: "INR",
+    });
   };
 
   return (
@@ -69,8 +94,10 @@ export function PdpInteractive({
           productName={productName}
           optionLabel={optionLabel}
           variants={variants}
+          imageUrl={primaryImageUrl}
           reviewCount={reviewCount}
           reviewAverage={reviewAverage}
+          freeShippingThresholdPaise={freeShippingThresholdPaise}
           onPayloadChange={setPayload}
           onAddToCart={addToCart}
         />

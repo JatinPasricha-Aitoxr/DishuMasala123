@@ -40,11 +40,13 @@ export interface ScrollColorBandProps {
 }
 
 /**
- * A background that shifts colour as it scrolls through the viewport — the "Lemon Shift" idea
- * (blue turning toward magenta/red) applied to the Blue Tea → Red Tea section handoff per client
- * request, rather than the removed hero. Progress `t` is 0 when this element's top edge is at the
- * bottom of the viewport (about to enter) and 1 when its bottom edge reaches the top of the
- * viewport (about to leave).
+ * A background that shifts colour as it scrolls through the viewport. Originated as the "Lemon
+ * Shift" idea (blue turning toward magenta/red) applied to the Blue Tea → Red Tea section handoff
+ * per client request, rather than the removed hero; reused as-is (generic two/three-stop scroll
+ * tracking, nothing Lemon-Shift-specific in the implementation) for the Masala pillar's own band
+ * (`MasalaBand.tsx`, CLAUDE.md §7.2 amendment) once Tea and Masala needed equal full-bleed
+ * treatment. Progress `t` is 0 when this element's top edge is at the bottom of the viewport (about
+ * to enter) and 1 when its bottom edge reaches the top of the viewport (about to leave).
  *
  * **Wrap BOTH sections in a single instance of this component** (fromVar=blue, viaVar=pink,
  * toVar=red), don't use two separate instances stitched at their edges — two independently

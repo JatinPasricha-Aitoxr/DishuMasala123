@@ -3,10 +3,11 @@ import { PromoBannerSlider } from "@/components/hero/PromoBannerSlider";
 import type { HomepageBanner } from "@/lib/db/queries/settings";
 
 /**
- * Introduces the homepage's Spices section (client request, 2026-08-28): a repeating marquee
- * separator (matching the top-of-page TrustStrip's pattern via the shared `MarqueeStrip`), a
- * "Spices" heading, then the client-supplied banner image (scripts/migrate-spices-banner.ts).
- * Sits directly above `SpicesGrid`, which carries the real product listing and its own heading —
+ * Introduces the homepage's Masala pillar (client request, 2026-08-28; repositioned as the pillar's
+ * lead-in by CLAUDE.md §7.2's 2026-09-10 amendment): a repeating marquee separator (matching the
+ * top-of-page TrustStrip's pattern via the shared `MarqueeStrip`), a "Spices" heading, then the
+ * client-supplied banner image (scripts/migrate-spices-banner.ts). Sits directly above `MasalaBand`
+ * (inside its own `ScrollColorBand`), which carries the real product listing and its own heading —
  * this component is purely the intro/banner, not a second product section.
  *
  * The marquee copy ("100% Organic · Stone Ground · Zero Preservatives") is client-dictated text,

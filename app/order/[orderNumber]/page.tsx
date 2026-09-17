@@ -5,6 +5,7 @@ import { getOrderByOrderNumber } from "@/lib/db/queries/orders";
 import { verifyOrderToken } from "@/lib/order-token";
 import { checkPincodeServiceability } from "@/lib/shiprocket";
 import { formatINR } from "@/lib/money";
+import { PurchaseTracker } from "@/components/marketing/PurchaseTracker";
 
 export const metadata: Metadata = {
   title: "Order confirmation — Dishu Masala",
@@ -43,6 +44,12 @@ export default async function OrderConfirmationPage({ params, searchParams }: Or
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+      <PurchaseTracker
+        orderNumber={order.orderNumber}
+        skus={order.items.map((item) => item.sku)}
+        totalPaise={order.totalPaise}
+        numItems={order.items.reduce((n, item) => n + item.qty, 0)}
+      />
       <p className="text-sm font-semibold uppercase tracking-[0.1em] text-leaf">Order confirmed</p>
       <h1 className="mt-2 font-display text-3xl font-semibold text-ink">Thank you — order {order.orderNumber}</h1>
       <p className="mt-2 text-ink-2">

@@ -78,6 +78,17 @@ export const PLACEHOLDER_MANIFEST = {
       "commissioned for that specific post.",
     tone: "flat-warm",
   },
+  "corporate-gifting-hero": {
+    aspectRatio: "21 / 9",
+    standsInFor:
+      "The corporate/bulk-gifting page's full-bleed hero: a warm flat-lay of the real Dishu tea + " +
+      "masala hamper on a dark walnut table — gift box with gold ribbon, Blue Tea and Red Tea in " +
+      "glass cups, spices in brass bowls, naturally dark/empty on the left for the hero copy to sit " +
+      "in. No logo, no on-image copy, no identifiable person. Swaps in via " +
+      "getCorporateGiftingHeroImage() (lib/db/queries/settings.ts) once uploaded through the same " +
+      "Supabase Storage pipeline every other real section photo uses.",
+    tone: "flat-warm",
+  },
 } as const satisfies Record<string, PlaceholderEntry>;
 
 export type PlaceholderSlot = keyof typeof PLACEHOLDER_MANIFEST;

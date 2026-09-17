@@ -19,10 +19,18 @@ async function requireStaff() {
 }
 
 /** Approving revalidates the product page and its AggregateRating JSON-LD — both are driven off
- * the `reviews:<productId>` cache tag (lib/db/queries/reviews.ts) and the product's own page path. */
+ * the `reviews:<productId>` cache tag (lib/db/queries/reviews.ts) and the product's own page path.
+ *
+ * The plain `reviews` tag and `/` were added 2026-09-17 alongside the homepage review rail
+ * (`getHomepageReviews`). Without them the homepage kept serving its cached "no reviews yet" empty
+ * state after a review was approved — caught in testing, and exactly the stale-storefront-after-an-
+ * admin-edit bug CLAUDE.md §3.4 calls out. Any future cross-product review surface should hang off
+ * the same `reviews` tag rather than inventing a third one. */
 function revalidateProduct(slug: string, productId: number) {
   updateTag(`reviews:${productId}`);
+  updateTag("reviews");
   if (slug) revalidatePath(`/product/${slug}`);
+  revalidatePath("/");
   revalidatePath("/admin/reviews");
   revalidatePath("/admin");
 }
@@ -85,6 +93,10 @@ export async function bulkApproveReviewsAction(input: z.infer<typeof bulkSchema>
     diff: { count: ids.length, ids },
   });
   for (const slug of affectedSlugs) revalidatePath(`/product/${slug}`);
+  // Same homepage-rail invalidation as revalidateProduct above — a bulk approve is the likeliest
+  // way the first real reviews ever land, so it must refresh the homepage too.
+  updateTag("reviews");
+  revalidatePath("/");
   revalidatePath("/admin/reviews");
   revalidatePath("/admin");
   return { ok: true, message: `Approved ${ids.length} review${ids.length === 1 ? "" : "s"}.` };

@@ -18,6 +18,7 @@ export interface UpdateSettingsInput {
   gstin: string;
   announcementBarText: string;
   maintenanceMode: boolean;
+  whatsappNumber: string;
 }
 
 export async function updateAdminSettings(input: UpdateSettingsInput): Promise<void> {
@@ -28,6 +29,9 @@ export async function updateAdminSettings(input: UpdateSettingsInput): Promise<v
     upsertSetting("gstin", input.gstin),
     upsertSetting("announcement_bar_text", input.announcementBarText),
     upsertSetting("maintenance_mode", input.maintenanceMode),
+    // Object-wrapped, not a bare string — see lib/db/queries/settings.ts's getWhatsAppNumber for
+    // why a purely-numeric bare jsonb string gets silently corrupted into a number on read.
+    upsertSetting("whatsapp_number", { number: input.whatsappNumber }),
   ]);
 }
 

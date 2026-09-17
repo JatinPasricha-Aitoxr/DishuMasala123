@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { formatINR, paise } from "@/lib/money";
+import { DESIGN_TOKEN_HEX } from "@/lib/design-tokens";
 
 /**
  * Opens Razorpay's checkout for a server-created order (PROMPTS.md Phase 5 item 8). The checkout
@@ -90,7 +91,10 @@ export function RazorpayButton({
         name: shopName,
         order_id: razorpayOrderId,
         prefill,
-        theme: { color: "#123FA8" },
+        // Razorpay's checkout renders in its own iframe, so this has to be a literal colour string
+        // — it can't resolve a CSS var() from our stylesheet. lib/design-tokens.ts is the one
+        // canonical source for that literal, not a re-typed copy of --color-brew-1.
+        theme: { color: DESIGN_TOKEN_HEX["brew-1"] },
         handler: (response) => {
           // Outcome 1: success (fast-path only — see file header comment).
           onSuccess({ razorpayPaymentId: response.razorpay_payment_id, razorpaySignature: response.razorpay_signature });

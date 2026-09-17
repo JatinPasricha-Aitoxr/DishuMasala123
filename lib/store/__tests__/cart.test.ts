@@ -34,6 +34,7 @@ function pricingLine(overrides: Partial<PricingLine> = {}): PricingLine {
     variantId: 1,
     productId: 1,
     collectionId: 1,
+    collectionSlug: "blue-tea",
     priority: 1,
     productName: "Blue Tea",
     sku: "BT-500",
@@ -44,6 +45,7 @@ function pricingLine(overrides: Partial<PricingLine> = {}): PricingLine {
     requestedQty: 1,
     lineTotalPaise: paise(50000),
     imageStorageKey: null,
+    isGift: false,
     ...overrides,
   };
 }
@@ -54,12 +56,16 @@ function pricing(overrides: { lines?: PricingLine[]; issues?: PricingIssue[]; to
     lines: overrides.lines ?? [],
     subtotalPaise: paise(t.subtotal ?? 50000),
     discountPaise: paise(t.discount ?? 0),
+    crossPillarDiscountPaise: paise(0),
+    crossPillarApplied: false,
     shippingPaise: paise(t.shipping ?? 0),
     totalPaise: paise(t.total ?? 50000),
     savingsPaise: paise(t.savings ?? 10000),
     couponCode: null,
     freeShippingThresholdPaise: paise(t.freeShippingThreshold ?? 50000),
     rupeesToFreeShippingPaise: paise(t.rupeesToFreeShipping ?? 0),
+    freeGiftThresholdPaise: paise(69900),
+    hasFreeGift: (overrides.lines ?? []).some((l) => l.isGift),
     issues: overrides.issues ?? [],
     clean: (overrides.issues ?? []).length === 0,
   };

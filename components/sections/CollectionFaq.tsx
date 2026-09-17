@@ -29,7 +29,7 @@ export async function CollectionFaq({ collectionSlug, collectionTitle }: Collect
   };
 
   return (
-    <section aria-labelledby="collection-faq-heading" className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:py-16">
+    <section aria-labelledby="collection-faq-heading" className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-14 lg:py-16">
       <h2 id="collection-faq-heading" className="font-display text-2xl font-semibold text-ink sm:text-3xl">
         Frequently asked questions
       </h2>

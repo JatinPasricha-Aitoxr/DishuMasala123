@@ -3,7 +3,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { db } from "../index";
-import { orderItems, orders, reviewPhotos, reviews, variants } from "../schema";
+import { orderItems, orders, products, reviewPhotos, reviews, variants } from "../schema";
 
 export type ReviewSort = "recent" | "highest" | "lowest";
 
@@ -164,4 +164,61 @@ export async function countRecentReviewsByIpHash(ipHash: string, windowHours: nu
     .from(reviews)
     .where(and(eq(reviews.ipHash, ipHash), sql`${reviews.createdAt} >= ${since}`));
   return Number(row?.n ?? 0);
+}
+
+/** One approved review, carrying the product it belongs to — the homepage shows reviews across the
+ * whole catalogue, so unlike `ReviewListItem` each row has to name its own product. */
+export interface HomepageReviewItem {
+  id: number;
+  authorName: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  verifiedBuyer: boolean;
+  createdAt: Date;
+  productName: string;
+  productSlug: string;
+}
+
+/**
+ * The homepage's social-proof rail: the most recent approved reviews across every published
+ * product (client bug list row 13, 2026-09-17: "Add Reviews").
+ *
+ * Approved-only and published-product-only, exactly like the PDP list — a pending review can never
+ * surface here, so the moderation queue stays the single gate on what the public sees.
+ *
+ * **This returns an empty array today and that is correct, not a bug.** There are zero approved
+ * reviews in this project: the only row in the table is an `E2E Tester` fixture left by the
+ * Playwright suite. CLAUDE.md §8 forbids inventing reviews, so the homepage renders its empty
+ * state until real ones exist rather than seeding plausible-looking ones. The section fills itself
+ * the moment the client starts approving genuine reviews — nothing else has to change.
+ *
+ * Cached on the shared `reviews` tag so approving a review in the admin refreshes the homepage.
+ */
+export async function getHomepageReviews(limit = 6): Promise<HomepageReviewItem[]> {
+  return unstable_cache(() => fetchHomepageReviews(limit), ["homepage-reviews", String(limit)], {
+    tags: ["reviews"],
+  })();
+}
+
+async function fetchHomepageReviews(limit: number): Promise<HomepageReviewItem[]> {
+  const rows = await db
+    .select({
+      id: reviews.id,
+      authorName: reviews.authorName,
+      rating: reviews.rating,
+      title: reviews.title,
+      body: reviews.body,
+      verifiedBuyer: reviews.verifiedBuyer,
+      createdAt: reviews.createdAt,
+      productName: products.name,
+      productSlug: products.slug,
+    })
+    .from(reviews)
+    .innerJoin(products, eq(products.id, reviews.productId))
+    .where(and(eq(reviews.status, "approved"), eq(products.status, "published")))
+    .orderBy(desc(reviews.createdAt))
+    .limit(limit);
+
+  return rows.map((r) => ({ ...r, createdAt: new Date(r.createdAt) }));
 }

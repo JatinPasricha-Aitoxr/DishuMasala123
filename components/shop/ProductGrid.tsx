@@ -16,8 +16,12 @@ export interface ProductGridProps {
 export function ProductGrid({ products }: ProductGridProps) {
   return (
     <ul className="grid grid-cols-2 items-stretch gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4 xl:gap-6">
-      {products.map((p) => (
-        <li key={p.slug} className="flex">
+      {products.map((p, i) => (
+        <li
+          key={p.slug}
+          className="flex animate-[card-in_450ms_cubic-bezier(.16,1,.3,1)_both]"
+          style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+        >
           <ProductCard {...toProductCardProps(p)} className="h-full w-full" />
         </li>
       ))}

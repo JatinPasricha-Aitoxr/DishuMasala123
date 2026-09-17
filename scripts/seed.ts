@@ -199,19 +199,21 @@ async function seedSettings(catalog: Catalog): Promise<void> {
       value: toPaise(catalog.freeShippingThreshold),
     },
     {
-      // Only the facts actually given anywhere in the project docs (PRD.md, PROMPTS.md Phase 1
-      // footer spec) are filled in; nothing else is invented — unknown fields are marked TODO
-      // for the client to supply, same as GSTIN below.
+      // Real values the client has since supplied (2026-09-17, via a direct settings update —
+      // this source template had drifted out of sync with the live row, and a later `db:seed`
+      // rerun silently clobbered the real data back to these placeholders; keeping this template
+      // current is what prevents that from happening again). GSTIN below is still genuinely
+      // unknown.
       key: "store_address",
       value: {
         businessName: "Dishu Food and Beverages",
-        line1: "TODO",
+        line1: "Gali Number 3, Shekhupura Basic, Sunami Gate",
         city: "Sangrur",
         state: "Punjab",
-        pincode: "TODO",
+        pincode: "148001",
         country: "India",
-        phone: "+91 99882 27798",
-        email: "TODO",
+        phone: "+91 77102 19958",
+        email: "DISHUFOODANDBEVERAGES@GMAIL.COM",
       },
     },
     {
@@ -230,10 +232,15 @@ async function seedSettings(catalog: Catalog): Promise<void> {
     },
     {
       // Editable from Phase 7's admin settings page (app/admin/settings) — a real, seedable
-      // default rather than an invented claim: it states only the free-shipping threshold and the
-      // WELCOME5 coupon, both already true facts elsewhere in this seed.
+      // default rather than an invented claim.
+      //
+      // The WELCOME5 mention was dropped 2026-09-17: PhoneCapturePopup advertises LUCKY10 at 10%
+      // off a first order, and a 5%-off code sitting in the top strip at the same time is a second,
+      // worse first-order discount on the same page view. Both coupons still exist; only the strip
+      // copy changed, and it now carries the shipping threshold, which applies to every shopper.
+      // Kept in sync with the hardcoded fallback in components/layout/HeaderClient.tsx.
       key: "announcement_bar_text",
-      value: "Free shipping over ₹500 · Use code WELCOME5 for 5% off your first order",
+      value: "Free shipping over ₹499",
     },
     {
       // The degraded/maintenance banner toggle (PROMPTS.md Phase 7 item 6) — off by default.

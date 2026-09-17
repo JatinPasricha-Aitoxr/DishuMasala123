@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import { ProductGrid } from "@/components/shop/ProductGrid";
 import { PromoBannerSlider } from "@/components/hero/PromoBannerSlider";
 import { CollectionFaq } from "@/components/sections/CollectionFaq";
+import { MarqueeStrip } from "@/components/layout/MarqueeStrip";
+import { COLLECTIONS_WITH_BENEFIT_STRIP, TEA_BENEFIT_STRIP } from "@/content/collection-benefits";
 import { getAllCollectionSlugs, getCollectionBySlug } from "@/lib/db/queries/collections";
 import { getPublishedProductsByCollectionSlug } from "@/lib/db/queries/products";
 import { getCollectionPageBanner } from "@/lib/db/queries/settings";
 import { GRADIENT_TILE_SLUGS } from "@/lib/nav";
 import { resolveFamilyAccent, familyAccentVar } from "@/lib/family-accent";
-import { formatINR, type Paise } from "@/lib/money";
 
 interface CollectionPageProps {
   params: Promise<{ slug: string }>;
@@ -29,7 +30,9 @@ export async function generateMetadata({ params }: CollectionPageProps): Promise
   return {
     // seo_title/seo_description are unpopulated in today's seed (data/catalog.json carries no SEO
     // copy) — fall back to the collection's own real title/tagline rather than rendering nothing.
-    title: collection.seoTitle ?? `${collection.title} — Dishu Masala`,
+    // Bare title only: the root layout's title template ("%s — Dishu Masala") appends the brand
+    // suffix once — appending it here too produced "Blue Tea — Dishu Masala — Dishu Masala".
+    title: collection.seoTitle ?? collection.title,
     description:
       collection.seoDescription ??
       collection.tagline ??
@@ -46,25 +49,26 @@ function CollectionHeader({
   title,
   tagline,
   slug,
-  productCount,
-  minPricePaise,
-  maxPricePaise,
+  belowBanner = false,
 }: {
   title: string;
   tagline: string | null;
   slug: string;
-  productCount: number;
-  minPricePaise: Paise | null;
-  maxPricePaise: Paise | null;
+  /**
+   * True when a page banner sits directly above this header (2026-09-17, after the client moved
+   * collection banners back to the top of the page).
+   *
+   * The banner is the page's hero: the client's own artwork already carries a headline, the logo
+   * and the trust icons baked into the pixels. A second full-height colour block immediately under
+   * it reads as two competing heroes stacked, which is the opposite of the restraint the reference
+   * site is admired for. So when a banner is present this header collapses to a compact title bar
+   * on the page's own ivory ground — accent rule, eyebrow, name and tagline — and the saturated
+   * gradient treatment is dropped. With no banner, the full treatment below still runs, because
+   * then this header IS the page's only hero and does need the presence.
+   */
+  belowBanner?: boolean;
 }) {
-  const isGradient = GRADIENT_TILE_SLUGS.has(slug);
-  const priceRange =
-    minPricePaise != null && maxPricePaise != null
-      ? minPricePaise === maxPricePaise
-        ? formatINR(minPricePaise)
-        : `${formatINR(minPricePaise)} – ${formatINR(maxPricePaise)}`
-      : null;
-
+  const isGradient = GRADIENT_TILE_SLUGS.has(slug) && !belowBanner;
   if (isGradient) {
     const gradient = slug === "blue-tea" ? "var(--gradient-brew-cool)" : "var(--gradient-hibiscus)";
     return (
@@ -78,10 +82,6 @@ function CollectionHeader({
             {title}
           </h1>
           {tagline && <p className="mt-3 max-w-xl text-base leading-relaxed text-white/90">{tagline}</p>}
-          <p className="mt-5 text-sm text-white/80">
-            {productCount} product{productCount === 1 ? "" : "s"}
-            {priceRange ? ` · ${priceRange}` : ""}
-          </p>
         </div>
       </header>
     );
@@ -90,22 +90,34 @@ function CollectionHeader({
   const accent = familyAccentVar(resolveFamilyAccent(slug, []));
   return (
     <header className="w-full bg-bg">
-      <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:py-16">
-        <div aria-hidden="true" className="mb-6 h-[3px] w-16 rounded-full" style={{ backgroundColor: accent }} />
+      {/* Tighter vertical rhythm under a banner — the banner has already claimed the top of the
+       * page, so this block is a caption to it, not a hero of its own. */}
+      <div
+        className={
+          belowBanner
+            ? "mx-auto max-w-7xl px-4 pb-2 pt-6 sm:px-6 sm:pt-8"
+            : "mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:py-16"
+        }
+      >
+        <div
+          aria-hidden="true"
+          className={`h-[3px] w-16 rounded-full ${belowBanner ? "mb-4" : "mb-6"}`}
+          style={{ backgroundColor: accent }}
+        />
         <p className="text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: accent }}>
           Collection
         </p>
         <h1
           className="mt-3 font-display font-semibold text-ink"
-          style={{ fontSize: "clamp(2rem, 4vw, 3.25rem)", letterSpacing: "-0.015em", lineHeight: 1.1 }}
+          style={{
+            fontSize: belowBanner ? "clamp(1.75rem, 3vw, 2.5rem)" : "clamp(2rem, 4vw, 3.25rem)",
+            letterSpacing: "-0.015em",
+            lineHeight: 1.1,
+          }}
         >
           {title}
         </h1>
         {tagline && <p className="mt-3 max-w-xl text-base leading-relaxed text-ink-2">{tagline}</p>}
-        <p className="mt-5 text-sm text-ink-2">
-          {productCount} product{productCount === 1 ? "" : "s"}
-          {priceRange ? ` · ${priceRange}` : ""}
-        </p>
       </div>
     </header>
   );
@@ -123,19 +135,46 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
 
   return (
     <div>
+      {/* Order: [banner] < Hero < Products < FAQ.
+       *
+       * The banner leads the page again (client, 2026-09-17, second request that day — it had been
+       * moved to the foot of the page earlier the same day, and that instruction is now superseded:
+       * "all the categories inside pages should have banner at the top, not at the bottom").
+       * The banner keeps the contained rounded-card frame the client chose on 2026-09-11 — that
+       * decision is about how the banner is framed, and is unaffected by where it sits. */}
       {pageBanner.length > 0 && (
-        <PromoBannerSlider banners={pageBanner} ariaLabel={`${collection.title} promotions`} fullBleed />
+        <PromoBannerSlider
+          banners={pageBanner}
+          ariaLabel={`${collection.title} promotions`}
+          /* One frame for every collection page, so they all open at the same height (client,
+           * 2026-09-17: "all the category pages are totally inconsistent, one has large banner,
+           * one has small"). 12/5 desktop matches the homepage banner shape, so the whole site
+           * shares one banner proportion; 4/5 mobile is the shape most of the portrait crops
+           * already use. See PromoBannerSlider's `frameRatio` for why letterboxing is safe here. */
+          frameRatio={{ mobile: "4 / 5", desktop: "12 / 5" }}
+        />
       )}
+
+      {/* Benefit strip, directly under the banner (client bug list row 3, 2026-09-17: "location
+       * below the category banners of blue tea , red tea"). Reuses the shared MarqueeStrip rather
+       * than a second scrolling implementation, so it pauses on hover and freezes to a static list
+       * under prefers-reduced-motion for free. Deliberately gated by collection — see
+       * content/collection-benefits.ts for why "Zero Caffeine" must never reach Classic & Assam. */}
+      {COLLECTIONS_WITH_BENEFIT_STRIP.has(collection.slug) && (
+        <MarqueeStrip
+          ariaLabel={`${collection.title} product qualities`}
+          items={TEA_BENEFIT_STRIP.map((b) => ({ label: b.label }))}
+        />
+      )}
+
       <CollectionHeader
         title={collection.title}
         tagline={collection.tagline}
         slug={collection.slug}
-        productCount={collection.productCount}
-        minPricePaise={collection.minPricePaise}
-        maxPricePaise={collection.maxPricePaise}
+        belowBanner={pageBanner.length > 0}
       />
 
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-14">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:py-12">
         {products.length === 0 ? (
           <p className="rounded-lg border border-line bg-surface-2 px-6 py-16 text-center text-ink-2">
             No products are published in this collection yet.

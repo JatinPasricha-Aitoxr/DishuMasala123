@@ -39,6 +39,10 @@ export const orders = pgTable("orders", {
   paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
   subtotalPaise: integer("subtotal_paise").notNull(),
   discountPaise: integer("discount_paise").notNull().default(0),
+  // The automatic cross-pillar bundle discount (CLAUDE.md §7.2's 2026-09-10 amendment), snapshotted
+  // separately from discountPaise — that column is reserved for manually-entered coupon codes
+  // (coupons/coupon_redemptions); this one has no code and never touches those tables.
+  bundleDiscountPaise: integer("bundle_discount_paise").notNull().default(0),
   shippingPaise: integer("shipping_paise").notNull().default(0),
   totalPaise: integer("total_paise").notNull(),
   couponCode: text("coupon_code"),

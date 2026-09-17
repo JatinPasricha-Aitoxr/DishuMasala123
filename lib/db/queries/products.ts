@@ -102,6 +102,10 @@ async function fetchPublishedProductsByCollectionSlug(slug: string): Promise<Pro
         ...r.variant,
         mrpPaise: paise(r.variant.mrpPaise),
         pricePaise: paise(r.variant.pricePaise),
+        // Shop/collection cards never render the per-variant pack image (that's a PDP-only
+        // BuyBox detail, sourced by lib/db/queries/product-detail.ts instead) — never selected
+        // here, so always null rather than a second query this list never needs.
+        imageUrl: null,
       });
     }
   }

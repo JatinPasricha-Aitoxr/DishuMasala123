@@ -117,7 +117,7 @@ async function fetchSearchProducts(q: string): Promise<ProductCardData[]> {
     seoDescription: r.seoDescription,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
-    variants: r.variantsJson.map((v) => ({ ...v, mrpPaise: paise(v.mrpPaise), pricePaise: paise(v.pricePaise) })),
+    variants: r.variantsJson.map((v) => ({ ...v, mrpPaise: paise(v.mrpPaise), pricePaise: paise(v.pricePaise), imageUrl: null })),
     images: r.imagesJson.map((img) => ({ url: publicUrl(img.storageKey), alt: img.alt, width: img.width, height: img.height })),
   }));
 }

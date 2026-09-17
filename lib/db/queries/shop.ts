@@ -136,6 +136,7 @@ async function fetchShopPage(filters: ShopFilters): Promise<ShopPage> {
       ...v,
       mrpPaise: paise(v.mrpPaise),
       pricePaise: paise(v.pricePaise),
+      imageUrl: null,
     })),
     images: r.imagesJson.map((img) => ({ url: publicUrl(img.storageKey), alt: img.alt, width: img.width, height: img.height })),
   }));

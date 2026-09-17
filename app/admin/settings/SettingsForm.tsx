@@ -26,6 +26,7 @@ export function SettingsForm({ initial }: { initial: AdminSettingsSnapshot }) {
     gstin: initial.gstin,
     announcementBarText: initial.announcementBarText,
     maintenanceMode: initial.maintenanceMode,
+    whatsappNumber: initial.whatsappNumber,
   });
 
   function set<K extends keyof typeof state>(key: K, value: (typeof state)[K]) {
@@ -49,6 +50,7 @@ export function SettingsForm({ initial }: { initial: AdminSettingsSnapshot }) {
         gstin: state.gstin,
         announcementBarText: state.announcementBarText,
         maintenanceMode: state.maintenanceMode,
+        whatsappNumber: state.whatsappNumber,
       });
       show({ title: result.ok ? "Saved" : "Failed", description: result.ok ? result.message : result.error, tone: result.ok ? "ok" : "crit" });
     });
@@ -91,11 +93,14 @@ export function SettingsForm({ initial }: { initial: AdminSettingsSnapshot }) {
         <Field label="Phone">
           <Input value={state.phone} onChange={(e) => set("phone", e.target.value)} />
         </Field>
-        <Field label="Email">
+        <Field label="Email" hint={`Also where you'll get a "new order" email every time a customer checks out.`}>
           <Input value={state.email} onChange={(e) => set("email", e.target.value)} />
         </Field>
         <Field label="GSTIN">
           <Input value={state.gstin} onChange={(e) => set("gstin", e.target.value)} />
+        </Field>
+        <Field label="WhatsApp number" hint="Digits only, with country code (e.g. 917710219958) — no + or spaces. Powers the floating chat button.">
+          <Input value={state.whatsappNumber} onChange={(e) => set("whatsappNumber", e.target.value.replace(/[^0-9]/g, ""))} />
         </Field>
       </fieldset>
 
@@ -117,11 +122,12 @@ export function SettingsForm({ initial }: { initial: AdminSettingsSnapshot }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block text-sm">
       <span className="mb-1 block font-medium text-ink">{label}</span>
       {children}
+      {hint && <span className="mt-1 block text-xs text-ink-3">{hint}</span>}
     </label>
   );
 }

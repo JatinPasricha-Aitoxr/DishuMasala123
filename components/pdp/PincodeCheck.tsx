@@ -69,8 +69,7 @@ export function PincodeCheck() {
         {state.kind === "result" && state.result.status === "serviceable" && (
           <p className="text-ok">
             Delivers to {pincode}
-            {state.result.etaDays != null ? ` in ~${state.result.etaDays} day${state.result.etaDays === 1 ? "" : "s"}` : ""}.{" "}
-            {state.result.codAvailable ? "Cash on Delivery available." : "Prepaid only for this pincode."}
+            {state.result.etaDays != null ? ` in ~${state.result.etaDays} day${state.result.etaDays === 1 ? "" : "s"}` : ""}.
           </p>
         )}
 

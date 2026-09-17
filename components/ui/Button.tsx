@@ -26,7 +26,7 @@ const BASE =
   "inline-flex items-center justify-center rounded-md font-sans font-semibold " +
   "transition-[transform,box-shadow,background-color,color,opacity] duration-[180ms] " +
   "ease-[cubic-bezier(.2,.6,.2,1)] disabled:opacity-50 disabled:pointer-events-none select-none " +
-  "whitespace-nowrap";
+  "whitespace-nowrap active:scale-[0.97]";
 
 const VARIANT_CLASSES: Record<Exclude<ButtonVariant, "gradient">, string> = {
   "solid-ink": "bg-ink text-surface hover:opacity-90 active:opacity-95 shadow-card",

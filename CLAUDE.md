@@ -219,6 +219,20 @@ text/product-photo backgrounds — this amends the "one gradient surface" framin
 adjacent full-bleed sections deliberately designed as one continuous colour journey, not a lapse
 in the original discipline.
 
+**Amended (2026-09-10, client decision, following §7.2's amendment):** Masala now gets its own
+full-bleed scroll-colour band too (`MasalaBand.tsx`, chilli → pepper), the pillar counterpart to
+Blue Tea/Red Tea's. "The only full-bleed editorial band on the homepage" (§5.4's original allowed
+list, and §7.2's original text) is no longer accurate or intended — read both pillars' bands as one
+deliberately symmetric pair, the same reasoning the 2026-08-28 amendment above already established
+for two adjacent tea sections sharing one colour journey, just applied to two separate pillars
+instead of two sections of the same pillar. Still real, token-derived colours only: turmeric was
+considered and rejected as a stop specifically because white text on it clears only ~2.4:1, the same
+accessibility failure §5.6 already calls out for the citrus stop — chilli (~5.3:1) and pepper
+(~12.4:1) were checked and both clear 4.5:1. The two pillar bands are never simultaneously in
+viewport (they're far apart in scroll order), so "more than one gradient surface in a single
+viewport" still holds; it's the total-per-page count, not the per-viewport one, that's now two
+instead of one.
+
 ### 5.5 Motion
 Micro-interactions 160–220ms `cubic-bezier(.2,.6,.2,1)`. Hero brew morph 900–1400ms. Card hover
 lifts 2px and crossfades to the second image. Under `prefers-reduced-motion: reduce` everything
@@ -297,14 +311,53 @@ Nothing outside `lib/db/` imports Drizzle. Everything else consumes the domain t
 Seeded from `data/catalog.json`: 20 products, 30 variants, 5 collections. Options are a single axis
 per product, labelled by that product's own `option_label` — `Size`, `Combo`, or `Teabags`.
 
-### 7.2 Priority — the client's explicit rule
-**Blue Tea first. Then Red Tea. Then everything else.** Stored as `priority` on both `collections`
-and `products`: `1` blue-tea, `2` red-tea, `3` classic-teas, `4` combos, `5` spices. Lower sorts
-first, everywhere: homepage section order, `/shop` default sort, nav and mega-menu order, footer
-collection list, related products, cart upsells. Blue Tea additionally gets the hero, the only
-full-bleed editorial band on the homepage, and a brew-story block on its PDP.
+### 7.2 Priority — superseded 2026-09-10, client decision
 
-`priority` is editable in the admin. The seed data sets it; nothing infers it.
+**Original rule (kept below for history — no longer in effect):** "Blue Tea first. Then Red Tea.
+Then everything else." Stored as `priority` on both `collections` and `products`: `1` blue-tea, `2`
+red-tea, `3` classic-teas, `4` combos, `5` spices. Lower sorts first, everywhere: homepage section
+order, `/shop` default sort, nav and mega-menu order, footer collection list, related products, cart
+upsells. Blue Tea additionally got the hero, the only full-bleed editorial band on the homepage, and
+a brew-story block on its PDP.
+
+**Amended (2026-09-10, client decision): Tea and Masala are co-equal pillars, not a cascade.**
+The client's own company is named Dishu **Masala** — tea doesn't appear in the name — and asked
+directly for masala to carry equal importance, not sit structurally last behind the entire tea
+range. The original rule, taken from an earlier decision, did the opposite of that by construction:
+a single flat `priority` cascade means one category always fully precedes the other everywhere it's
+read. Reversed as follows:
+
+- **Two pillars, not five flat ranks.** Tea = `blue-tea`, `red-tea`, `classic-teas`. Masala =
+  `spices`, `combos`. Each pillar has a primary collection (its strongest individual hook) and a
+  secondary one.
+- **`priority` is now interleaved, not grouped**, so every reader of the raw column — `/shop`'s
+  default sort, the footer collection list, related products, cart upsells — gets pillar parity for
+  free, with no separate template logic: `1` blue-tea, `2` spices, `3` red-tea, `4` combos, `5`
+  classic-teas (`data/catalog.json`, re-seeded via `pnpm db:seed`'s existing upsert-on-conflict — no
+  schema/migration change, purely a data decision). Blue Tea keeps rank 1 — it still has the
+  strongest single lead hook, the Lemon Shift — but rank 2 is Masala, not more tea.
+- **Homepage** (`app/page.tsx`) changed from a single tea-first cascade to alternating full-bleed
+  pillar bands: Tea's primary band, then Masala's primary band (`MasalaBand.tsx`, new — the pillar
+  counterpart to `BlueTeaBand.tsx`), then Tea's secondary section, then Masala's secondary section.
+  §5.4 below is amended to match — a second full-bleed band is no longer an exception to "the only
+  one," it's the other half of a deliberately symmetric pair.
+- **Nav / mega-menu** (`lib/nav.ts`, `components/layout/HeaderClient.tsx`): a "Masala" column now
+  sits alongside "Teas" (previously Spices and Combo Packs were two separate unlabelled misc
+  columns next to one named "Teas" column — technically two columns to Teas' one, but not legible
+  as a pillar). The flat desktop nav's explicit order literal was updated to match the new
+  interleaved `priority`.
+- **Not yet touched, flagged rather than guessed at:** related-product and cart-upsell logic still
+  key off `priority`/collection the same way they always did — interleaving the numbers changes
+  their output but no code there was rewritten, since "should an upsell ever cross pillars on
+  purpose" is a product decision, not implied by "give masala equal billing." Revisit if the client
+  wants cross-pillar upsells specifically.
+- **Open item, flagged to the client, not invented:** Masala doesn't yet have a hook equivalent to
+  Tea's Lemon Shift — "Single-Origin. Double-Layer Packed." is a real, honest packaging claim, not a
+  sensory story. Equal visual weight (this amendment) isn't equal narrative weight; closing that gap
+  for real — the aroma when the double-layer seal opens, the stone-grinding process, per-spice
+  single-origin traceability — needs real content from the client, per §8's "invent nothing."
+
+`priority` is still editable in the admin. The seed data sets it; nothing infers it.
 
 ### 7.3 Pricing display
 Every variant has an MRP and a live sale price — real discounts of 6–27%. Always render MRP struck
@@ -366,8 +419,52 @@ and no quantity is ever shown. Only when a real count exists and is under 10 may
   This does not change the rule for content this project writes on its own initiative — copy,
   accordions, policy pages, and any new claim Claude itself proposes still follow every constraint
   in this section unless the client makes the same explicit call again.
-
----
+- **Logged exception (2026-09-09, extends the 2026-08-28 entry to the PDP gallery):** the Blue Tea
+  (teabags) product page (`premium-herbal-blue-tea-teabags`, `product_images` ids 104/105/106) now
+  carries 3 client-supplied images with the same kind of claims as the homepage banners above, but
+  in a placement the 2026-08-28 entry explicitly did **not** cover — the product gallery itself,
+  not a `PromoBannerSlider` banner slot. The images include a specific timed claim ("What people
+  noticed after drinking Blue Tea consistently for 8 weeks" with a body-image visual), "Belly Fat
+  Reduction & Slimming" baked into a pouch mockup, and a competitor-comparison graphic asserting
+  other teabags "Contain Microplastics — Leaches harmful particles in hot water". Claude flagged
+  this as materially different from the banner exception — a live product listing, a specific
+  timeframe, a body-image weight-loss visual, and a claim about a competitor's product safety, none
+  of which the original entry's images did — before uploading anything. The client explicitly chose
+  to use them on the PDP as-is. Treated as its own decision, not an automatic extension of the
+  banner exception to every future PDP gallery image; a different product's gallery carrying
+  similar claims would need the same explicit call made again, not an assumption that this entry
+  covers it.
+- **Logged exception (2026-09-10, same explicit-call pattern, a second product — corrected same
+  day):** 4 client-supplied images (2 with health claims — "Supports Heart Health", "Helps Regulate
+  Blood Sugar", "Strengthens Immunity", "Enhances Skin Glow"; 1 resealable-pack/double-layer/
+  hygienic-processing image needing no exception, every claim on it already independently
+  verifiable under this section; 1 nutrition-facts panel with specific per-100g values and an
+  allergen statement) were flagged before uploading — the nutrition panel specifically because
+  fabricated nutrition labeling is an FSSAI packaging-law question, not a brand-voice one, so
+  Claude asked directly whether the figures were real lab/packaging data rather than treating it as
+  covered by any standing exception. The client confirmed both: use the health claims as-is, and
+  the nutrition data is real. **These 4 images were first uploaded to the wrong product**
+  (`classic-tea-250gm`) and moved same-day to their correct one (`classic-tea-500gm`,
+  `product_images` ids 150–153) once the client caught the mix-up — the content decision above is
+  about the images themselves, not the SKU, so it carries over to `classic-tea-500gm` rather than
+  needing to be re-asked for a mere placement correction. `classic-tea-250gm` separately received 3
+  of its own new images the same day (`product_images` ids 147–149) — also health-claim-bearing
+  ("Supports Immunity", "Good for Heart Health", "Provides Natural Energy", "Aids Digestion", "Rich
+  in Antioxidants") — covered by this same entry's approval since it's the same product already
+  cleared here, not a new one. Same standing rule as before: a genuinely different product's gallery
+  still needs this asked again, not assumed from this entry.
+- **Logged exception (2026-09-10, extends the pattern to the Spices category):** the Black Pepper +
+  Garam Masala + Coriander combo (`black-pepper-garam-masala-coriander`, `product_images` ids
+  154/155) carries 2 client-supplied images with vague wellness framing — "Supports A Healthier
+  You", "Supports Wellness" (with a heart icon) — genuinely milder than the teas' specific medical
+  claims (no organ or condition named), but still asked about explicitly rather than assumed,
+  since this is the first time the pattern extends to Spices rather than Teas. The client confirmed
+  use as-is. Also worth recording: while sorting these, an image the client had placed in
+  `garam-masala-black-pepper`'s folder turned out to actually show Coriander + Black Pepper
+  packaging — the client confirmed it belonged on `black-pepper-coriander` instead once flagged.
+  Two mis-filed-image catches in as many days is a real pattern, not a one-off — worth a quick
+  double-check of what a dropped image actually shows against the product folder it landed in
+  before uploading, every time, not just when something looks obviously off.
 
 ## 9. The admin panel (`/admin`)
 

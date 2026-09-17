@@ -36,6 +36,42 @@ export async function getFreeShippingThresholdPaise(): Promise<Paise> {
   return paise(row.value);
 }
 
+/** Free-gift order threshold in paise, shown on the homepage trust strip ("🎁 Free gift on orders
+ * above ₹X") — read from `settings`, never a hardcoded literal at the call site. `null` (the
+ * trust strip omits the line entirely) until this is actually set: unlike free shipping, there is
+ * no checkout/fulfillment logic anywhere in this codebase that adds a gift to a qualifying order —
+ * displaying the claim without a real threshold configured would promise something no part of the
+ * system, automated or otherwise, is wired to deliver. */
+export async function getFreeGiftThresholdPaise(): Promise<Paise | null> {
+  const [row] = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(eq(settings.key, "free_gift_threshold_paise"))
+    .limit(1);
+
+  if (row == null || typeof row.value !== "number") return null;
+  return paise(row.value);
+}
+
+// PLACEHOLDER — 10% is not a confirmed client decision, same draft status as content/home.ts's
+// founderStory copy. Revisit once the client picks a real rate.
+const FALLBACK_CROSS_PILLAR_BUNDLE_DISCOUNT_PERCENT = 10;
+
+/** Whole-number percent for the automatic cross-pillar bundle discount (CLAUDE.md §7.2's
+ * 2026-09-10 amendment) — read from `settings`, never a hardcoded literal in lib/commerce/pricing.ts. */
+export async function getCrossPillarBundleDiscountPercent(): Promise<number> {
+  const [row] = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(eq(settings.key, "cross_pillar_bundle_discount_percent"))
+    .limit(1);
+
+  if (row == null || typeof row.value !== "number") {
+    return FALLBACK_CROSS_PILLAR_BUNDLE_DISCOUNT_PERCENT;
+  }
+  return row.value;
+}
+
 /** Store contact/address details for the footer, exactly as scripts/seed.ts seeded them —
  * including the literal "TODO" placeholders where the client hasn't supplied real data yet. */
 export async function getStoreAddress(): Promise<StoreAddress | null> {
@@ -85,6 +121,37 @@ export async function getAnnouncementBarText(): Promise<string> {
   const [row] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, "announcement_bar_text")).limit(1);
   if (row == null || typeof row.value !== "string") return "Free shipping over ₹500 · Use code WELCOME5 for 5% off your first order";
   return row.value;
+}
+
+/** The floating WhatsApp "click to chat" button's target number (components/marketing/
+ * WhatsAppButton.tsx), digits only with country code (e.g. "917710219958") — `wa.me/<number>`
+ * needs no "+" or spaces. Deliberately its own setting, not reused from `store_address.phone`:
+ * that's the general seller-contact line quoted on policy pages, and the client's real WhatsApp
+ * number is a different one. Empty string (not a fabricated placeholder) when unset, so the
+ * button can just not render rather than link to a fake number.
+ *
+ * Stored as `{ number: "..." }`, never a bare string, to sidestep a real drizzle-orm +
+ * node-postgres interaction: `pg` auto-parses `jsonb` columns into JS values at the driver level,
+ * and drizzle-orm's own PgJsonb#mapFromDriverValue then unconditionally re-parses any value that
+ * arrives as a string — so a bare jsonb string that itself happens to look like JSON (a
+ * purely-numeric phone number, "true", "null") gets silently double-decoded into a number/
+ * boolean/null. Every other bare-string setting here (`gstin`, `announcement_bar_text`) survives
+ * only because its content isn't valid JSON on its own; an object value never hits that code path
+ * at all, since `typeof value === "object"` skips the re-parse. */
+export async function getWhatsAppNumber(): Promise<string> {
+  const [row] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, "whatsapp_number")).limit(1);
+  const value = row?.value as { number?: string } | undefined;
+  return value?.number ?? "";
+}
+
+/** The support/sales inbox address — used by the corporate-gifting page's fallback contact row
+ * (components/gifting/BulkEnquiryForm.tsx) and available anywhere else a real "email us" link is
+ * needed. Empty string (never a fabricated address, CLAUDE.md §8) until
+ * scripts/set-support-email.ts has been run. */
+export async function getSupportEmail(): Promise<string> {
+  const [row] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, "support_email")).limit(1);
+  const value = row?.value as { email?: string } | undefined;
+  return value?.email ?? "";
 }
 
 /** The maintenance/degraded-banner toggle (Phase 7's admin settings, consumed by a future
@@ -210,6 +277,60 @@ export async function getRedTeaLifestyleImage(): Promise<SectionImage | null> {
   return { ...value, url: publicUrl(value.storageKey) };
 }
 
+/** The corporate/bulk-gifting page's hero flat-lay (app/corporate-gifting/page.tsx) — the client's
+ * real hamper photo, once uploaded through the same migration pipeline every other real section
+ * photo uses. `null` (falls back to the "corporate-gifting-hero" placeholder) until that upload
+ * happens. */
+export async function getCorporateGiftingHeroImage(): Promise<SectionImage | null> {
+  const [row] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, "corporate_gifting_hero_image")).limit(1);
+  const value = row?.value as Omit<SectionImage, "url"> | undefined;
+  if (!value) return null;
+  return { ...value, url: publicUrl(value.storageKey) };
+}
+
+/** The corporate/bulk-gifting page's mobile-specific hero photo (GiftingHero.tsx's `lg:hidden`
+ * block) — a separate, portrait-cropped shot from the desktop hero, not the same image resized,
+ * since the client supplied a genuinely different framing for the narrow layout. `null` until
+ * uploaded; GiftingHero.tsx falls back to the desktop hero image (then the placeholder) rather
+ * than rendering nothing. */
+export async function getCorporateGiftingHeroMobileImage(): Promise<SectionImage | null> {
+  const [row] = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(eq(settings.key, "corporate_gifting_hero_mobile_image"))
+    .limit(1);
+  const value = row?.value as Omit<SectionImage, "url"> | undefined;
+  if (!value) return null;
+  return { ...value, url: publicUrl(value.storageKey) };
+}
+
+/** Real photos for the corporate-gifting page's gift-pack cards (GiftPackCarousel.tsx), keyed by
+ * the pack's own slug (content/gifting.ts's `GIFT_PACKS[].slug`) — the client's actual hamper/box
+ * photography for each curated bundle, not a single real product's packshot standing in for the
+ * whole pack. Empty object (never an error) until scripts/migrate-gifting-images.ts has run;
+ * callers fall back to the per-product image resolution (app/corporate-gifting/page.tsx) or the
+ * generic placeholder for any pack slug missing here. */
+export async function getGiftPackImages(): Promise<Record<string, SectionImage>> {
+  const [row] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, "gift_pack_images")).limit(1);
+  const value = row?.value as Record<string, Omit<SectionImage, "url">> | undefined;
+  if (!value) return {};
+  return Object.fromEntries(Object.entries(value).map(([slug, img]) => [slug, { ...img, url: publicUrl(img.storageKey) }]));
+}
+
+/** Per-collection homepage CategoryCircles photo (scripts/migrate-category-circles.ts), keyed by
+ * collection slug. Deliberately separate from a product's own gallery images — those are picked
+ * for the PDP, not for a small round icon, and are often marketing infographics that look bad
+ * cropped into a circle. Empty object (never an error) until the script has been run; callers must
+ * fall back to a placeholder or omit the circle's photo for any slug missing here. */
+export async function getCategoryCircleImages(): Promise<Record<string, SectionImage>> {
+  const [row] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, "category_circle_images")).limit(1);
+  const value = row?.value as Record<string, Omit<SectionImage, "url">> | undefined;
+  if (!value) return {};
+  return Object.fromEntries(
+    Object.entries(value).map(([slug, img]) => [slug, { ...img, url: publicUrl(img.storageKey) }]),
+  );
+}
+
 /** Every settings row the admin settings page (Phase 7 item 6) reads and edits, in one round
  * trip — the "one typed helper" every settings read in this codebase goes through (grepped and
  * confirmed at the end of Phase 7: no component reads `settings` ad hoc or hardcodes a literal
@@ -221,6 +342,7 @@ export interface AdminSettingsSnapshot {
   gstin: string;
   announcementBarText: string;
   maintenanceMode: boolean;
+  whatsappNumber: string;
 }
 
 const EMPTY_STORE_ADDRESS: StoreAddress = {
@@ -235,7 +357,7 @@ const EMPTY_STORE_ADDRESS: StoreAddress = {
 };
 
 export async function getAdminSettingsSnapshot(): Promise<AdminSettingsSnapshot> {
-  const [freeShippingThresholdPaise, standardShippingPaise, storeAddress, gstin, announcementBarText, maintenanceMode] =
+  const [freeShippingThresholdPaise, standardShippingPaise, storeAddress, gstin, announcementBarText, maintenanceMode, whatsappNumber] =
     await Promise.all([
       getFreeShippingThresholdPaise(),
       getStandardShippingPaise(),
@@ -243,6 +365,7 @@ export async function getAdminSettingsSnapshot(): Promise<AdminSettingsSnapshot>
       getGstin(),
       getAnnouncementBarText(),
       getMaintenanceMode(),
+      getWhatsAppNumber(),
     ]);
   return {
     freeShippingThresholdPaise,
@@ -251,5 +374,6 @@ export async function getAdminSettingsSnapshot(): Promise<AdminSettingsSnapshot>
     gstin: gstin ?? "TODO",
     announcementBarText,
     maintenanceMode,
+    whatsappNumber,
   };
 }

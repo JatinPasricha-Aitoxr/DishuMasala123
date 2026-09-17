@@ -13,6 +13,7 @@
 
 export type FamilyAccentToken =
   | "brew-2"
+  | "brew-3"
   | "hibiscus"
   | "leaf"
   | "turmeric"
@@ -55,4 +56,32 @@ export function resolveFamilyAccent(
 /** Maps an accent token to its CSS custom property (all tokens live in app/globals.css @theme). */
 export function familyAccentVar(token: FamilyAccentToken): string {
   return `var(--color-${token})`;
+}
+
+/**
+ * Collection-level accent — distinct from `resolveFamilyAccent` above, which needs a specific
+ * product's tags. This is for contexts with only a collection to hand (CategoryCircles.tsx's
+ * homepage strip): every collection gets its own token instead of Spices and Combo Packs both
+ * silently falling back to the same "gold" a tag-less call to `resolveFamilyAccent` would produce,
+ * which would make two adjacent circles in a quick-nav strip visually indistinguishable — the one
+ * thing that strip exists to avoid. Turmeric is safe to use here specifically because nothing here
+ * ever puts text directly on the accent colour (it's a circular photo backdrop, the label sits
+ * below on the page's normal ivory ground) — MasalaBand.tsx's ScrollColorBand excludes turmeric for
+ * the opposite reason (white text sits directly on that background there).
+ */
+export function resolveCollectionAccent(collectionSlug: string): FamilyAccentToken {
+  switch (collectionSlug) {
+    case "blue-tea":
+      return "brew-2";
+    case "red-tea":
+      return "hibiscus";
+    case "blue-tea-red-tea-combo":
+      return "brew-3";
+    case "classic-teas":
+      return "leaf";
+    case "spices":
+      return "turmeric";
+    default:
+      return "gold";
+  }
 }

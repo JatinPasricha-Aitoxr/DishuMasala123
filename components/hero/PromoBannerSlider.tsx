@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { HomepageBanner } from "@/lib/db/queries/settings";
 
-const AUTOPLAY_MS = 6000;
+const AUTOPLAY_MS = 3000;
 
 /**
  * The client-supplied homepage promotional slider (scripts/migrate-homepage-banners.ts). This is
@@ -18,24 +18,39 @@ const AUTOPLAY_MS = 6000;
  * The first thing on the homepage (app/page.tsx) — the animated Lemon Shift hero that used to sit
  * below this was removed at the client's request; this slider is now the top of the page.
  *
- * Reused as-is (via `ariaLabel`) for the single-image Red Tea section banner — it already renders
- * correctly with exactly one banner (no dots/arrows/autoplay, since those all gate on
- * `banners.length > 1`), so there was no need for a second component.
+ * Reused as-is (via `ariaLabel`) for every other banner slot on the site (Red Tea, Classic Tea,
+ * Spices, and each collection page's own hero) — it already renders correctly with exactly one
+ * banner (no dots/arrows/autoplay, since those all gate on `banners.length > 1`), so there was no
+ * need for a second component.
  *
- * `fullBleed` (client request, 2026-08-28: "the top banners can be for full screen all... I think
- * this only looks good for the top banners not all, just the first banners of the pages") — true
- * only for the very first/hero banner at the top of a page (the homepage's top slider, a
- * collection page's own hero), edge-to-edge with no side padding/corner-rounding. Every mid-page
- * banner (Red Tea, Classic Tea, Spices) stays the original contained, rounded-corner card.
+ * Every banner — including the homepage's top slider and each collection page's own hero — is the
+ * same contained, rounded-corner card (client request, 2026-09-11: make the hero/page-top banners
+ * match the Red Tea section's look, not full-bleed). A prior 2026-08-28 decision had made those two
+ * slots edge-to-edge instead; that's reversed now, so `fullBleed` no longer exists as an option.
  */
 export function PromoBannerSlider({
   banners,
   ariaLabel = "Promotions",
-  fullBleed = false,
+  frameRatio,
 }: {
   banners: HomepageBanner[];
   ariaLabel?: string;
-  fullBleed?: boolean;
+  /**
+   * Forces every slide into one fixed frame instead of following each banner's own shape.
+   *
+   * Added 2026-09-17. The collection pages needed this: their client-supplied banners range from
+   * 1200x400 to 1200x800, so with per-banner ratios /collections/spices rendered a 410px-tall hero
+   * and /collections/classic-teas an 821px one — exactly double, which is what "one has large
+   * banner, one has small" meant. A fixed frame makes every collection page open identically.
+   *
+   * Safe to letterbox because the images are already drawn with `object-contain`, so nothing is
+   * ever cropped — a banner shorter than the frame simply sits on the frame's own cream ground,
+   * which is also the background most of these compositions already use, so the seam barely reads.
+   *
+   * The homepage deliberately does NOT pass this: its banner set is already a consistent shape and
+   * the client has signed that layout off.
+   */
+  frameRatio?: { mobile: string; desktop: string };
 }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -43,6 +58,8 @@ export function PromoBannerSlider({
     () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
 
   useEffect(() => {
     const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -53,22 +70,24 @@ export function PromoBannerSlider({
 
   useEffect(() => {
     if (!playing || reducedMotion || banners.length < 2) return;
-    const id = window.setInterval(() => {
+    const id = window.setTimeout(() => {
       setIndex((i) => (i + 1) % banners.length);
     }, AUTOPLAY_MS);
-    return () => window.clearInterval(id);
-  }, [playing, reducedMotion, banners.length]);
+    return () => window.clearTimeout(id);
+  }, [index, playing, reducedMotion, banners.length]);
 
   if (banners.length === 0) return null;
 
-  // A fixed ratio per breakpoint (rather than each slide's own width/height) keeps the frame's
-  // size stable when slides change — sizing the box per-slide made it visibly jump on every
-  // transition. object-cover on each image absorbs any remaining mismatch by cropping. Only when
-  // the *current* slide actually has a dedicated mobile crop does the box switch to a taller
-  // mobile ratio — a banner with no mobile image stays at the wide ratio on every breakpoint
-  // (object-cover already handled that case fine; forcing a portrait box on it would crop far too
-  // aggressively for an image that was never shot for that ratio).
-  const aspectClass = banners[index]?.mobile ? "aspect-[4/5] sm:aspect-[21/9]" : "aspect-[21/9]";
+  // Each slide's own real aspect ratio, never a fixed guess (see app/globals.css's
+  // .promo-banner-frame) — client-supplied banners vary widely in shape (some collection-page
+  // heroes are 1200x400, others 1200x800), and a fixed box cropped real content off the sides or
+  // top/bottom via object-cover whenever a banner's actual shape didn't match it. Falls back to the
+  // desktop ratio on mobile when a slide has no dedicated mobile crop.
+  const current = banners[index];
+  const naturalDesktopRatio = current ? `${current.width} / ${current.height}` : "21 / 9";
+  const naturalMobileRatio = current?.mobile ? `${current.mobile.width} / ${current.mobile.height}` : naturalDesktopRatio;
+  const desktopRatio = frameRatio?.desktop ?? naturalDesktopRatio;
+  const mobileRatio = frameRatio?.mobile ?? naturalMobileRatio;
 
   function goTo(i: number) {
     setIndex(((i % banners.length) + banners.length) % banners.length);
@@ -84,14 +103,42 @@ export function PromoBannerSlider({
     }
   }
 
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const diffX = touchStartX.current - e.changedTouches[0].clientX;
+    const diffY = touchStartY.current - e.changedTouches[0].clientY;
+
+    if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY)) {
+      if (diffX > 0) {
+        goTo(index + 1);
+      } else {
+        goTo(index - 1);
+      }
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  }
+
   const frame = (
     <div
       ref={containerRef}
-      className={`relative w-full overflow-hidden bg-surface-2 ${fullBleed ? "" : "rounded-xl shadow-card"} ${aspectClass}`}
-      style={{ maxHeight: "60vh" }}
+      className="promo-banner-frame relative w-full overflow-hidden rounded-xl bg-surface-2 shadow-card"
+      style={
+        {
+          "--pb-ratio-mobile": mobileRatio,
+          "--pb-ratio-desktop": desktopRatio,
+        } as React.CSSProperties
+      }
       onMouseEnter={() => setPlaying(false)}
       onMouseLeave={() => setPlaying(true)}
       onKeyDown={handleKeyDown}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {banners.map((banner, i) => (
         <Link
@@ -99,9 +146,31 @@ export function PromoBannerSlider({
           href={banner.href}
           aria-hidden={i !== index}
           tabIndex={i === index ? 0 : -1}
-          className="absolute inset-0 transition-opacity duration-500 ease-out"
+          className="absolute inset-0 transition-opacity duration-500 ease-out flex items-center justify-center"
           style={{ opacity: i === index ? 1 : 0, pointerEvents: i === index ? "auto" : "none" }}
         >
+          {/* Blurred backdrop, only in fixed-frame mode.
+           *
+           * A fixed frame plus `object-contain` guarantees equal heights without ever cropping a
+           * banner, but it leaves bars wherever a banner is a different shape than the frame — and
+           * on a plain cream ground those bars are obvious against a banner whose own background is
+           * dark (Classic & Assam's sunset is the worst case, ~230px a side). Filling them with an
+           * over-scaled, heavily blurred copy of the same banner makes the frame read as one image
+           * that fades at the edges rather than as a small picture in a big box. No extra request:
+           * it is the same `src`, so the browser reuses the decoded image. */
+          frameRatio && (
+            <span aria-hidden="true" className="absolute inset-0 overflow-hidden">
+              <Image
+                src={banner.url}
+                alt=""
+                fill
+                sizes="100vw"
+                className="scale-110 object-cover blur-2xl"
+                aria-hidden="true"
+              />
+              <span className="absolute inset-0 bg-bg/25" />
+            </span>
+          )}
           {banner.mobile && (
             <Image
               src={banner.mobile.url}
@@ -109,7 +178,7 @@ export function PromoBannerSlider({
               fill
               priority={i === 0}
               sizes="100vw"
-              className="object-cover sm:hidden"
+              className="object-contain sm:hidden"
             />
           )}
           <Image
@@ -118,13 +187,13 @@ export function PromoBannerSlider({
             fill
             priority={i === 0}
             sizes="100vw"
-            className={`object-cover ${banner.mobile ? "hidden sm:block" : ""}`}
+            className={`object-contain ${banner.mobile ? "hidden sm:block" : ""}`}
           />
         </Link>
       ))}
 
       {banners.length > 1 && (
-        <div className="absolute inset-x-0 bottom-4 flex items-center justify-center gap-3">
+        <div className="absolute inset-x-0 bottom-4 z-10 flex items-center justify-center gap-3">
           <div className="flex gap-2 rounded-full bg-ink/40 px-3 py-1.5 backdrop-blur-sm">
             {banners.map((banner, i) => (
               <button
@@ -132,7 +201,11 @@ export function PromoBannerSlider({
                 type="button"
                 aria-label={`Go to slide ${i + 1} of ${banners.length}`}
                 aria-current={i === index}
-                onClick={() => goTo(i)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  goTo(i);
+                }}
                 className={`size-2 rounded-full transition-colors ${i === index ? "bg-white" : "bg-white/40"}`}
               />
             ))}
@@ -140,7 +213,11 @@ export function PromoBannerSlider({
           <button
             type="button"
             aria-label={playing ? "Pause slideshow" : "Play slideshow"}
-            onClick={() => setPlaying((p) => !p)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPlaying((p) => !p);
+            }}
             className="flex size-7 items-center justify-center rounded-full bg-ink/40 text-white backdrop-blur-sm"
           >
             {playing ? (
@@ -157,32 +234,44 @@ export function PromoBannerSlider({
         </div>
       )}
 
-      <button
-        type="button"
-        aria-label="Previous slide"
-        onClick={() => goTo(index - 1)}
-        className="absolute left-3 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-ink/40 text-white backdrop-blur-sm hover:bg-ink/60"
-      >
-        <svg viewBox="0 0 20 20" fill="none" className="size-4" aria-hidden="true">
-          <path d="M12.5 15 7.5 10l5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        aria-label="Next slide"
-        onClick={() => goTo(index + 1)}
-        className="absolute right-3 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-ink/40 text-white backdrop-blur-sm hover:bg-ink/60"
-      >
-        <svg viewBox="0 0 20 20" fill="none" className="size-4" aria-hidden="true">
-          <path d="M7.5 15 12.5 10l-5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
+      {banners.length > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous slide"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              goTo(index - 1);
+            }}
+            className="absolute left-3 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-ink/40 text-white backdrop-blur-sm transition-all hover:bg-ink/60 active:scale-95"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="size-4" aria-hidden="true">
+              <path d="M12.5 15 7.5 10l5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label="Next slide"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              goTo(index + 1);
+            }}
+            className="absolute right-3 top-1/2 z-10 flex size-9 -translate-y-1/2 items-center justify-center rounded-full bg-ink/40 text-white backdrop-blur-sm transition-all hover:bg-ink/60 active:scale-95"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="size-4" aria-hidden="true">
+              <path d="M7.5 15 12.5 10l-5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </>
+      )}
     </div>
   );
 
   return (
-    <section aria-roledescription="carousel" aria-label={ariaLabel} className={`w-full bg-bg ${fullBleed ? "" : "py-6 sm:py-8"}`}>
-      {fullBleed ? frame : <div className="mx-auto max-w-7xl px-4 sm:px-6">{frame}</div>}
+    <section aria-roledescription="carousel" aria-label={ariaLabel} className="w-full bg-bg py-6 sm:py-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">{frame}</div>
     </section>
   );
 }

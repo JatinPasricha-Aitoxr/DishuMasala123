@@ -31,30 +31,53 @@ function CloseIcon() {
   );
 }
 
+export type DrawerWidth = "sm" | "cart";
+
+const WIDTH_CLASSES: Record<DrawerWidth, string> = {
+  sm: "w-[min(20rem,88vw)]",
+  // The cart drawer (bluetea.co.in-style): full-bleed on mobile, 440px on desktop (CLAUDE.md §5
+  // spacing discipline, PROMPTS.md cart brief §2/§18: "420-500px").
+  cart: "w-screen sm:w-[440px]",
+};
+
 export function DrawerContent({
   className,
   side = "left",
+  width = "sm",
+  padded = true,
+  showDefaultClose = true,
   children,
   ...props
-}: ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { side?: DrawerSide }) {
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  side?: DrawerSide;
+  width?: DrawerWidth;
+  /** false lets the content own its own padding — used by the cart drawer, whose sticky
+   * header/footer need to bleed edge-to-edge while the scrollable body keeps inset padding. */
+  padded?: boolean;
+  showDefaultClose?: boolean;
+}) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-ink/40 data-[state=open]:animate-[fade-in_180ms_ease]" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-ink/50 backdrop-blur-[2px] data-[state=open]:animate-[fade-in_180ms_ease]" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed top-0 z-50 h-dvh w-[min(20rem,88vw)] overflow-y-auto bg-surface p-5 shadow-lift focus:outline-none",
+          "fixed top-0 z-50 h-dvh overflow-y-auto bg-surface shadow-lift focus:outline-none",
+          padded && "p-5",
+          WIDTH_CLASSES[width],
           SIDE_CLASSES[side],
           className,
         )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close
-          className="absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-sm text-ink-2 hover:bg-surface-2"
-          aria-label="Close menu"
-        >
-          <CloseIcon />
-        </DialogPrimitive.Close>
+        {showDefaultClose && (
+          <DialogPrimitive.Close
+            className="absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-sm text-ink-2 hover:bg-surface-2"
+            aria-label="Close menu"
+          >
+            <CloseIcon />
+          </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

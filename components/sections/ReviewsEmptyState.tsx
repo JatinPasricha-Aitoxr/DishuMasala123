@@ -32,7 +32,7 @@ export function ReviewsEmptyState() {
   const copy = HOME_COPY.reviews;
 
   return (
-    <section aria-labelledby="reviews-heading" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
+    <section aria-labelledby="reviews-heading" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:py-16">
       <div className="flex flex-col items-center gap-4 rounded-lg border border-line bg-surface px-6 py-14 text-center">
         <TeacupIcon />
         <h2 id="reviews-heading" className="font-display text-xl font-semibold text-ink">

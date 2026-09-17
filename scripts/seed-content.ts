@@ -12,7 +12,7 @@
  * - The policy pages state ONLY verifiable facts already established elsewhere in this project:
  *   free shipping over ₹500 (settings.free_shipping_threshold_paise), COD availability, GST-
  *   inclusive pricing, the real business name "Dishu Food and Beverages", the real Sangrur,
- *   Punjab address and +91 99882 27798 phone (both already used in the Phase 1 footer). GSTIN and
+ *   Punjab address and +91 77102 19958 phone (both already used in the Phase 1 footer). GSTIN and
  *   the street address/pincode/email are rendered as the honest "to be confirmed" placeholders
  *   they actually are in `settings` (scripts/seed.ts) — never a fabricated GSTIN or return
  *   window. There is no stated return/refund window or named grievance officer anywhere in
@@ -46,14 +46,14 @@ function ol(items: string[]): TiptapElementNode {
 const SELLER_BLOCK = [
   h(2, "Seller identity"),
   p("Dishu Food and Beverages, Sangrur, Punjab, India."),
-  p("Phone: +91 99882 27798"),
+  p("Phone: +91 77102 19958"),
   p("GSTIN: to be confirmed — this page will be updated with the registered GSTIN once supplied."),
   p("Registered address: to be confirmed."),
 ];
 
 const GRIEVANCE_BLOCK = [
   h(2, "Questions or concerns"),
-  p("For any question about this policy, an order, or a complaint, call +91 99882 27798. There is no separate grievance officer or email on file yet — this phone line is the real, current contact channel and handles it directly."),
+  p("For any question about this policy, an order, or a complaint, call +91 77102 19958. There is no separate grievance officer or email on file yet — this phone line is the real, current contact channel and handles it directly."),
 ];
 
 // ---------------------------------------------------------------------------------------------
@@ -115,6 +115,13 @@ const privacyPolicy: TiptapDoc = {
     ]),
     h(2, "What we don't do"),
     p("We do not sell your personal information to third parties."),
+    h(2, "Marketing communications and on-site activity"),
+    ul([
+      "If you submit your phone number through a pop-up on this site, we store it only after you actively check a consent box, and use it solely to send you WhatsApp or SMS messages about offers and updates. We never assume consent from browsing alone.",
+      "We use a first-party cookie to recognise your browser and record which pages and products you view on this site. This is kept on our own servers only and used solely to decide what to message you about, if you have separately given phone consent as above.",
+      "Separately, this site uses the Meta (Facebook/Instagram) Pixel, which shares some browsing and purchase activity with Meta so we can measure and target advertising on Facebook and Instagram. This is standard, third-party ad-platform tracking — different from the first-party cookie above, and not something we can selectively turn off per visitor. You can control it through your own browser or ad-blocking settings, or through your Meta account's ad preferences.",
+      "You can ask us to stop contacting you, or to delete a phone number and its associated browsing record, at any time using the contact details below.",
+    ]),
     h(2, "Your account"),
     p("You can view and update your saved addresses, name and phone number from your account at any time. Contact us to request deletion of your account."),
     ...SELLER_BLOCK,

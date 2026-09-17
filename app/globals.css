@@ -100,6 +100,23 @@ body {
    `.text-align-normal` rather than needing every other component to opt in. */
 p {
   text-align: justify;
+  /* Justification without hyphenation is what produces "rivers" — the large, uneven word gaps that
+     were clearly visible in the founder story at 390px, where a justified line has only 6-8 words
+     to distribute the slack across. `hyphens: auto` lets the browser break long words instead of
+     stretching the spaces, and `text-wrap: pretty` stops the last lines from orphaning.
+     Added 2026-09-17 alongside the mobile-first pass; the client's justified-copy request is
+     unchanged, this only makes it hold up at phone widths. */
+  hyphens: auto;
+  text-wrap: pretty;
+}
+
+/* Below 640px the column is simply too narrow for justification to ever look deliberate, so body
+   copy falls back to ragged-right there. The justified setting the client asked for still applies
+   from the `sm` breakpoint up, which is where it actually reads as typeset rather than as broken. */
+@media (max-width: 639px) {
+  p {
+    text-align: left;
+  }
 }
 .text-align-normal,
 .text-align-normal p {
@@ -130,20 +147,37 @@ p {
   to { opacity: 1; }
 }
 
-/* Purely decorative float for the Spices section's raw-spice vector illustrations
-   (components/sections/FloatingSpiceVectors.tsx, client request — "looks bland on desktop").
-   A gentle bob + wobble, no meaningful end-state, so the generic prefers-reduced-motion collapse
-   further down this file (near-zero duration, single iteration) is sufficient on its own — it
-   just freezes each icon at rest, which is correct here, unlike the marquee/lemon-drop scene
-   which needed an explicit override. */
-@keyframes float-spice {
-  0%, 100% { transform: translateY(0) rotate(var(--float-rotate, -4deg)); }
-  50%      { transform: translateY(-14px) rotate(calc(var(--float-rotate, -4deg) * -1)); }
-}
-
 @keyframes dialog-in {
   from { opacity: 0; transform: translate(-50%, -48%) scale(0.98); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Pure CSS, no JS — used for the shop/collection grid's staggered card entrance
+   (components/shop/ProductGrid.tsx). Deliberately not the IntersectionObserver-based
+   ScrollReveal: this grid is visible immediately on page load rather than scrolled to, and /shop
+   has an explicit no-JS Playwright test protecting it, which a JS-gated reveal would risk. */
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* The header's cart/wishlist count badge (components/layout/HeaderClient.tsx) — keyed by the
+   count itself so React remounts (and re-plays this) every time it changes, in either direction. */
+@keyframes badge-pop {
+  0% { transform: scale(0.5); opacity: 0.4; }
+  60% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* components/pdp/ImageLightbox.tsx's own pop-in — deliberately richer/slower than the generic
+   dialog-in above (which is tuned for small utility dialogs like a refund note), since a
+   full-image viewer reads as too abrupt at 200ms. The cubic-bezier is an "ease-out-expo" shape:
+   fast start, long smooth settle, no overshoot. No `translate(-50%,-50%)` here — the panel is
+   centered by a flex wrapper, not a percentage-transform on itself, so it never needs to correct
+   its own position mid-animation (see the component's comment on why that changed). */
+@keyframes lightbox-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes drawer-in-left {
@@ -189,7 +223,9 @@ p {
 .trust-marquee-track {
   display: flex;
   width: max-content;
-  animation: trust-marquee 26s linear infinite;
+  /* Sped up from 16s per client request (2026-09-17) — same distance (translateX(-50%)), shorter
+   * duration reads as noticeably faster without needing to touch the keyframes themselves. */
+  animation: trust-marquee 9s linear infinite;
 }
 .trust-marquee-track:hover {
   animation-play-state: paused;
@@ -215,5 +251,54 @@ p {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * The PDP variant selector's "best value" running-border (components/pdp/BuyBox.tsx) — a thin
+ * gold line that continuously travels around the card's edge, marking whichever real variant has
+ * the best discount among the product's own options (never a fixed/guessed tier). `@property
+ * --angle` is what makes the conic-gradient itself animatable (browsers without support for it
+ * just show the gradient frozen at 0deg — a static gold accent on that corner, not a broken
+ * layout); the generic prefers-reduced-motion collapse above already freezes the rotation to one
+ * frame, which reads as a still gold border, not as something failing to finish.
+ */
+@property --best-value-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.best-value-border {
+  position: relative;
+  isolation: isolate;
+}
+.best-value-border::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(from var(--best-value-angle), transparent 0%, var(--color-gold) 12%, transparent 28%);
+  animation: best-value-rotate 2.6s linear infinite;
+}
+@keyframes best-value-rotate {
+  to {
+    --best-value-angle: 360deg;
+  }
+}
+
+/* components/hero/PromoBannerSlider.tsx: each banner's own real aspect ratio (never a fixed
+   21:9/4:5 guess — client-supplied images vary widely, e.g. some collection-page heroes are
+   1200x400, others 1200x800) — a mismatch between a fixed box and the real image made object-cover
+   crop the sides or top/bottom off real banner content. --pb-ratio-mobile/--pb-ratio-desktop are
+   set inline per current slide; this rule is what actually applies the responsive switch, since
+   inline styles can't carry a media query themselves. */
+.promo-banner-frame {
+  aspect-ratio: var(--pb-ratio-mobile);
+  transition: aspect-ratio 350ms ease-out;
+}
+@media (min-width: 640px) {
+  .promo-banner-frame {
+    aspect-ratio: var(--pb-ratio-desktop);
   }
 }

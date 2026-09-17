@@ -26,6 +26,20 @@ const BANNERS: BannerSource[] = [
     alt: "Blue by Nature, Better by Choice — Dishu Premium Herbal Blue Tea, 100% herbal, caffeine-free, zero sugar, enriched with Butterfly Pea Flower",
     href: "/collections/blue-tea",
   },
+  {
+    slot: "red-tea-chai",
+    file: "hero banner red tea.png",
+    mobileFile: "M_hero banner red tea.jpg",
+    alt: "A Cup of Natural Goodness with Dishu — Chai with Dishu, Caffeine Free Premium Herbal Red Tea enriched with Hibiscus Flower",
+    href: "/collections/red-tea",
+  },
+  {
+    slot: "pure-spices",
+    file: "hero banner spices.png",
+    mobileFile: "M_hero banner spices.jpg",
+    alt: "Pure Spices. Healthier You. — Spices with Dishu, 100% natural, no additives, rich aroma and bold taste",
+    href: "/collections/spices",
+  },
 ];
 
 migrateBannerSet("homepage_banners", BANNERS)

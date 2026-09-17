@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import { PriceBlock } from "@/components/ui/PriceBlock";
 import { Rating } from "@/components/ui/Rating";
 import { Placeholder } from "@/components/media/Placeholder";
@@ -193,7 +194,13 @@ export function ProductCard({
           {name}
         </Link>
 
-        {optionValues.length > 0 && (
+        {/* Client request (2026-09-17): a product with more than one real variant hides its price
+         * and option chips everywhere EXCEPT the product page itself — the price/size genuinely
+         * depends on which variant the shopper picks, and this component is never rendered on the
+         * PDP (that page uses BuyBox/PriceBlock directly), so gating on `optionValues.length > 1`
+         * here is exactly "everywhere but the product page." A single-variant product has no such
+         * ambiguity, so its one real price still shows. */}
+        {optionValues.length > 0 && optionValues.length <= 1 && (
           <div className="flex flex-wrap gap-1.5" aria-label={optionLabel}>
             {optionValues.map((v) => (
               <span
@@ -208,18 +215,31 @@ export function ProductCard({
 
         {rating && <Rating value={rating.value} count={rating.count} />}
 
-        <div className="mt-auto pt-1">
-          <PriceBlock mrpPaise={mrpPaise} pricePaise={pricePaise} />
-        </div>
+        {/* `mt-auto` moved onto this wrapper (not just the price block) so a multi-variant card,
+         * which renders no price above, still bottom-aligns its Quick add button with every
+         * single-variant card in the same grid row — otherwise the button would float right under
+         * the name/rating instead of at the card's bottom edge. */}
+        <div className="mt-auto flex flex-col gap-2 pt-1">
+          {optionValues.length <= 1 && <PriceBlock mrpPaise={mrpPaise} pricePaise={pricePaise} />}
 
-        <button
-          type="button"
-          onClick={quickAdd}
-          disabled={!canQuickAdd}
-          className="relative z-20 mt-2 h-10 w-full rounded-md border border-ink text-sm font-semibold text-ink transition-colors duration-[180ms] hover:bg-ink hover:text-surface disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
-        >
-          {primaryVariant && !primaryVariant.inStock ? "Out of stock" : "Quick add"}
-        </button>
+          {/* Uses the shared Button rather than a hand-rolled <button> (changed 2026-09-17): adding
+           * to the cart is the same intent here as it is in BuyBox, so it now carries the same
+           * `gradient` treatment instead of a quieter outline. Going through the component also
+           * restores what the bespoke markup had dropped — the system focus ring, `active:scale`,
+           * the shared size scale and disabled handling. `relative z-20` stays: the whole card is
+           * covered by a stretched link overlay, and the button has to sit above it to stay
+           * clickable. */}
+          <Button
+            type="button"
+            variant="gradient"
+            size="sm"
+            onClick={quickAdd}
+            disabled={!canQuickAdd}
+            className="relative z-20 w-full"
+          >
+            {primaryVariant && !primaryVariant.inStock ? "Out of stock" : "Add to cart"}
+          </Button>
+        </div>
       </div>
     </article>
   );

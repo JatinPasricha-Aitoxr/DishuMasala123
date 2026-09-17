@@ -291,23 +291,10 @@ export function CheckoutForm() {
               <div className="flex flex-col gap-4">
                 <fieldset>
                   <legend className="mb-2 text-sm font-semibold text-ink">Payment method</legend>
-                  <RadioGroup
-                    value={paymentMethod}
-                    onValueChange={(v) => setValue("paymentMethod", v as CheckoutFormValues["paymentMethod"])}
-                    className="flex flex-col gap-2"
-                  >
-                    <label className="flex items-center gap-2.5 rounded-md border border-line px-3.5 py-3 text-sm">
-                      <RadioGroupItem value="razorpay" id="pm-razorpay" />
-                      Pay online — UPI, cards, netbanking
-                    </label>
-                    <label className="flex items-center gap-2.5 rounded-md border border-line px-3.5 py-3 text-sm">
-                      <RadioGroupItem value="cod" id="pm-cod" />
-                      Cash on Delivery
-                      {pincodeStatus?.result.status === "serviceable" && !pincodeStatus.result.codAvailable && (
-                        <span className="text-xs text-warn">— not available at this pincode</span>
-                      )}
-                    </label>
-                  </RadioGroup>
+                  <div className="flex items-center gap-2.5 rounded-md border border-line bg-surface px-3.5 py-3 text-sm font-medium text-ink">
+                    <span className="size-2 rounded-full bg-ok" aria-hidden="true" />
+                    Pay online — UPI, cards, netbanking
+                  </div>
                 </fieldset>
 
                 <div aria-live="assertive" role="alert">

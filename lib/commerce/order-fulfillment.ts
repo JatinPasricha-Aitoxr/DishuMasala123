@@ -13,13 +13,28 @@ import "server-only";
  */
 import { markOrderPaid, markOrderPaymentFailed, attachShiprocketOrderId } from "@/lib/db/mutations/orders";
 import { getOrderById } from "@/lib/db/queries/orders";
+import { getStoreAddress } from "@/lib/db/queries/settings";
 import { pushOrderToShiprocket } from "@/lib/shiprocket";
-import { sendOrderConfirmationEmail } from "@/lib/email";
+import { sendOrderConfirmationEmail, sendNewOrderStaffEmail } from "@/lib/email";
 import { buildOrderConfirmationUrl } from "@/lib/order-token";
 import type { Order } from "@/types/order";
 
 function siteUrl(): string {
   return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+}
+
+/** Best-effort staff notification — never lets a bad/missing store email block the customer-facing
+ * side effects below. `"TODO"` is the literal seeded placeholder (lib/db/queries/settings.ts)
+ * before the client has supplied a real address; skip rather than "send" to a fake inbox. */
+async function notifyStaffOfNewOrder(order: Order): Promise<void> {
+  const storeAddress = await getStoreAddress();
+  const to = storeAddress?.email;
+  if (!to || to === "TODO") {
+    console.warn(`[email] no store notification email configured (settings.store_address.email) — skipping new-order alert for ${order.orderNumber}`);
+    return;
+  }
+  const adminOrderUrl = `${siteUrl()}/admin/orders/${order.orderNumber}`;
+  await sendNewOrderStaffEmail(to, order, adminOrderUrl);
 }
 
 /** Sends the order-confirmation email and attempts the Shiprocket push for an order that is now
@@ -28,6 +43,7 @@ function siteUrl(): string {
 export async function runOrderConfirmedSideEffects(order: Order): Promise<void> {
   const confirmationUrl = buildOrderConfirmationUrl(siteUrl(), order.orderNumber, order.email);
   await sendOrderConfirmationEmail(order, confirmationUrl);
+  await notifyStaffOfNewOrder(order);
 
   const push = await pushOrderToShiprocket({
     orderNumber: order.orderNumber,

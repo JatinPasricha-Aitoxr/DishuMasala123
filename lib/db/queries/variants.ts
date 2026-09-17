@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../index";
-import { productImages, products, variants } from "../schema";
+import { collections, productImages, products, variants } from "../schema";
 import { paise, type Paise } from "@/lib/money";
 
 /** Everything `lib/commerce/pricing.ts` needs to price one cart line, read fresh from Postgres —
@@ -11,6 +11,9 @@ export interface VariantPricingRow {
   variantId: number;
   productId: number;
   collectionId: number;
+  /** The line's collection slug (e.g. "blue-tea", "spices") — joined here so pricing.ts can
+   * classify Tea vs. Masala pillar membership (CLAUDE.md §7.2) without a second query. */
+  collectionSlug: string;
   productName: string;
   /** The product's own priority (CLAUDE.md §7.2) — carried through pricing so display-only
    * consumers (cart upsells) can sort/filter by it without a second round trip. Never used for
@@ -39,6 +42,7 @@ export async function getVariantsForPricing(ids: number[]): Promise<VariantPrici
       variantId: variants.id,
       productId: variants.productId,
       collectionId: products.collectionId,
+      collectionSlug: collections.slug,
       productName: products.name,
       priority: products.priority,
       sku: variants.sku,
@@ -50,6 +54,7 @@ export async function getVariantsForPricing(ids: number[]): Promise<VariantPrici
     })
     .from(variants)
     .innerJoin(products, eq(products.id, variants.productId))
+    .innerJoin(collections, eq(collections.id, products.collectionId))
     .where(inArray(variants.id, uniqueIds));
 
   const productIds = Array.from(new Set(rows.map((r) => r.productId)));

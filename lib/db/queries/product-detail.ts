@@ -56,9 +56,22 @@ async function fetchProductBySlug(slug: string): Promise<ProductWithVariants | n
 
   return {
     ...product,
-    variants: variantRows.map((v) => ({ ...v, mrpPaise: paise(v.mrpPaise), pricePaise: paise(v.pricePaise) })),
+    variants: variantRows.map((v) => ({
+      ...v,
+      mrpPaise: paise(v.mrpPaise),
+      pricePaise: paise(v.pricePaise),
+      imageUrl: v.imageStorageKey ? safeImageUrl(v.imageStorageKey) : null,
+    })),
     images: imageRows,
   };
+}
+
+function safeImageUrl(storageKey: string): string | null {
+  try {
+    return publicUrl(storageKey);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -141,7 +154,9 @@ async function fetchRelatedProducts(excludeProductId: number, limit: number): Pr
       byId.set(r.id, product);
     }
     if (r.variant && r.variant.id != null) {
-      product.variants.push({ ...r.variant, mrpPaise: paise(r.variant.mrpPaise), pricePaise: paise(r.variant.pricePaise) });
+      // Related-product cards never render the per-variant pack image (PDP BuyBox only) — null,
+      // not a second query this list never needs.
+      product.variants.push({ ...r.variant, mrpPaise: paise(r.variant.mrpPaise), pricePaise: paise(r.variant.pricePaise), imageUrl: null });
     }
   }
 

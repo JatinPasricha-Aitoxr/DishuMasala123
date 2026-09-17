@@ -21,6 +21,12 @@ export function OrderSummary({ pricing }: { pricing: PricingResult | null }) {
           <dd className="tabular-nums text-leaf">−{formatINR(pricing.discountPaise)}</dd>
         </div>
       )}
+      {pricing.crossPillarApplied && (
+        <div className="flex justify-between">
+          <dt className="text-ink-2">Tea + Masala bundle discount</dt>
+          <dd className="tabular-nums text-leaf">−{formatINR(pricing.crossPillarDiscountPaise)}</dd>
+        </div>
+      )}
       <div className="flex justify-between">
         <dt className="text-ink-2">Shipping</dt>
         <dd className="tabular-nums text-ink">{pricing.shippingPaise > 0 ? formatINR(pricing.shippingPaise) : "Free"}</dd>

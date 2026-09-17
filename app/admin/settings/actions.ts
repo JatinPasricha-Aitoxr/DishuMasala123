@@ -27,6 +27,11 @@ const settingsFormSchema = z.object({
   gstin: z.string().trim().min(1).max(30),
   announcementBarText: z.string().trim().min(1).max(300),
   maintenanceMode: z.boolean(),
+  whatsappNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{10,15}$/, "Digits only, with country code (e.g. 917710219958) — no + or spaces")
+    .or(z.literal("")),
 });
 
 export async function updateSettingsAction(input: z.infer<typeof settingsFormSchema>): Promise<AdminActionResult> {
@@ -55,6 +60,7 @@ export async function updateSettingsAction(input: z.infer<typeof settingsFormSch
     gstin: d.gstin,
     announcementBarText: d.announcementBarText,
     maintenanceMode: d.maintenanceMode,
+    whatsappNumber: d.whatsappNumber,
   });
 
   await writeAuditLog({
@@ -69,6 +75,7 @@ export async function updateSettingsAction(input: z.infer<typeof settingsFormSch
       gstin: { from: before.gstin, to: d.gstin },
       announcementBarText: { from: before.announcementBarText, to: d.announcementBarText },
       maintenanceMode: { from: before.maintenanceMode, to: d.maintenanceMode },
+      whatsappNumber: { from: before.whatsappNumber, to: d.whatsappNumber },
     },
   });
 

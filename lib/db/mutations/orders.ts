@@ -88,6 +88,7 @@ export async function createOrderTransaction(input: CreateOrderInput): Promise<C
           paymentStatus: initialPaymentStatus,
           subtotalPaise: input.pricing.subtotalPaise,
           discountPaise: input.pricing.discountPaise,
+          bundleDiscountPaise: input.pricing.crossPillarDiscountPaise,
           shippingPaise: input.pricing.shippingPaise,
           totalPaise: input.pricing.totalPaise,
           couponCode: input.pricing.couponCode,

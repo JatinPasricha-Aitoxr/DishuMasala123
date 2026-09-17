@@ -31,7 +31,7 @@ export const COLLECTION_FAQS: Record<string, FaqItem[]> = {
     },
     {
       question: "Where are your spices sourced from?",
-      answer: "Our spices are sourced in Punjab.",
+      answer: "Our spices are sourced from the best specified areas to maintain quality and aroma.",
     },
     {
       question: "How should I store my order?",
@@ -125,7 +125,7 @@ export const COLLECTION_FAQS: Record<string, FaqItem[]> = {
     },
     {
       question: "Where are the spices sourced from?",
-      answer: "Our spices are sourced in Punjab.",
+      answer: "Our spices are sourced from the best specified areas to maintain quality and aroma.",
     },
     {
       question: "What pack sizes are available?",
@@ -168,10 +168,6 @@ export function buildSharedCommerceFaqs(freeShippingLabel: string): FaqItem[] {
     {
       question: "Do you offer free shipping?",
       answer: `Yes — orders over ${freeShippingLabel} ship free.`,
-    },
-    {
-      question: "Is Cash on Delivery (COD) available?",
-      answer: "Yes, Cash on Delivery is available at checkout alongside online payment.",
     },
     {
       question: "Are your prices inclusive of tax?",

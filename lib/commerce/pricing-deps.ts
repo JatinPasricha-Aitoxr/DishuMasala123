@@ -8,7 +8,12 @@ import "server-only";
  */
 import { getVariantsForPricing } from "@/lib/db/queries/variants";
 import { countCouponRedemptionsByEmail, getCouponByCode, hasAnyOrderForEmail } from "@/lib/db/queries/coupons";
-import { getFreeShippingThresholdPaise, getStandardShippingPaise } from "@/lib/db/queries/settings";
+import {
+  getCrossPillarBundleDiscountPercent,
+  getFreeGiftThresholdPaise,
+  getFreeShippingThresholdPaise,
+  getStandardShippingPaise,
+} from "@/lib/db/queries/settings";
 import type { PricingDeps } from "./pricing";
 
 export const defaultPricingDeps: PricingDeps = {
@@ -16,6 +21,8 @@ export const defaultPricingDeps: PricingDeps = {
   getCoupon: getCouponByCode,
   getFreeShippingThresholdPaise,
   getStandardShippingPaise,
+  getCrossPillarBundleDiscountPercent,
   countCouponRedemptionsByEmail,
   hasAnyOrderForEmail,
+  getFreeGiftThresholdPaise,
 };

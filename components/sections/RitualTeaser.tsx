@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Placeholder } from "@/components/media/Placeholder";
+import { RitualVideo } from "./RitualVideo";
 import { SectionHeading } from "./SectionHeading";
 import { HOME_COPY } from "@/content/home";
 
@@ -11,7 +11,7 @@ export function RitualTeaser() {
   const copy = HOME_COPY.ritual;
 
   return (
-    <section aria-labelledby="ritual-heading" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
+    <section aria-labelledby="ritual-heading" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:py-16">
       <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:gap-16">
         <div className="flex flex-col gap-6">
           <SectionHeading
@@ -26,7 +26,7 @@ export function RitualTeaser() {
             </Button>
           </div>
         </div>
-        <Placeholder slot="ritual-lemon-brew" className="rounded-lg" />
+        <RitualVideo className="rounded-lg" />
       </div>
     </section>
   );

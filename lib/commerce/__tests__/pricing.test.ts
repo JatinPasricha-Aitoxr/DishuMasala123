@@ -15,6 +15,7 @@ const BLUE_500: VariantPricingRow = {
   variantId: 1,
   productId: 10,
   collectionId: 1,
+  collectionSlug: "blue-tea",
   priority: 1,
   productName: "Blue Tea",
   sku: "BT-500",
@@ -29,6 +30,7 @@ const RED_250: VariantPricingRow = {
   variantId: 2,
   productId: 11,
   collectionId: 2,
+  collectionSlug: "red-tea",
   priority: 2,
   productName: "Red Tea",
   sku: "RT-250",
@@ -43,6 +45,7 @@ const OUT_OF_STOCK: VariantPricingRow = {
   variantId: 3,
   productId: 12,
   collectionId: 5,
+  collectionSlug: "spices",
   priority: 5,
   productName: "Turmeric",
   sku: "TU-100",
@@ -53,8 +56,74 @@ const OUT_OF_STOCK: VariantPricingRow = {
   stockQty: null,
   imageStorageKey: null,
 };
+const CORIANDER_100: VariantPricingRow = {
+  variantId: 4,
+  productId: 13,
+  collectionId: 5,
+  collectionSlug: "spices",
+  priority: 5,
+  productName: "Coriander Powder",
+  sku: "CP-100",
+  optionValue: "100g",
+  mrpPaise: paise(15000),
+  pricePaise: paise(12000),
+  inStock: true,
+  stockQty: null,
+  imageStorageKey: null,
+};
 
-const CATALOG = [BLUE_500, RED_250, OUT_OF_STOCK];
+// The real gift-eligible SKUs (2026-09-17 client rule) — an exact allowlist by SKU, not a generic
+// "any spice" rule, so CORIANDER_100 above (sku "CP-100", not a real gift SKU) stays deliberately
+// NOT gift-eligible, proving the match is by exact SKU, not by collection/size alone.
+const CORIANDER_GIFT_100GM: VariantPricingRow = {
+  variantId: 5,
+  productId: 14,
+  collectionId: 5,
+  collectionSlug: "spices",
+  priority: 2,
+  productName: "Coriander Powder",
+  sku: "0026-100-gm",
+  optionValue: "100 gm",
+  mrpPaise: paise(5500),
+  pricePaise: paise(4800),
+  inStock: true,
+  stockQty: null,
+  imageStorageKey: null,
+};
+const GARAM_MASALA_100GM: VariantPricingRow = {
+  // Deliberately excluded from the gift allowlist (client rule: Coriander/Turmeric/Red Chilli
+  // only, not Black Pepper or Garam Masala) — used to prove that exclusion below.
+  variantId: 6,
+  productId: 15,
+  collectionId: 5,
+  collectionSlug: "spices",
+  priority: 3,
+  productName: "Garam Masala Powder",
+  sku: "0025-100-gm",
+  optionValue: "100 gm",
+  mrpPaise: paise(8500),
+  pricePaise: paise(8500),
+  inStock: true,
+  stockQty: null,
+  imageStorageKey: null,
+};
+const BLUE_TEA_GIFT_20GM: VariantPricingRow = {
+  variantId: 7,
+  productId: 16,
+  collectionId: 1,
+  collectionSlug: "blue-tea",
+  priority: 1,
+  productName: "Premium Herbal Blue Tea (loose)",
+  sku: "0023-20-gm",
+  optionValue: "20 gm",
+  mrpPaise: paise(11500),
+  pricePaise: paise(10346),
+  inStock: true,
+  stockQty: null,
+  imageStorageKey: null,
+};
+
+const CATALOG = [BLUE_500, RED_250, OUT_OF_STOCK, CORIANDER_100, CORIANDER_GIFT_100GM, GARAM_MASALA_100GM, BLUE_TEA_GIFT_20GM];
 
 const WELCOME5: CouponRow = {
   id: 1,
@@ -79,8 +148,10 @@ function fakeDeps(overrides: Partial<PricingDeps> = {}): PricingDeps {
     getCoupon: async (code) => (code.toUpperCase() === "WELCOME5" ? WELCOME5 : null),
     getFreeShippingThresholdPaise: async () => paise(50000),
     getStandardShippingPaise: async () => paise(5000),
+    getCrossPillarBundleDiscountPercent: async () => 10,
     countCouponRedemptionsByEmail: async () => 0,
     hasAnyOrderForEmail: async () => false,
+    getFreeGiftThresholdPaise: async () => paise(69900),
     ...overrides,
   };
 }
@@ -183,6 +254,64 @@ describe("computePricing — coupon application end to end", () => {
       fakeDeps(),
     );
     expect(result.issues).toContainEqual({ type: "coupon_invalid", code: "NOPE10", reason: "not_found" });
+  });
+});
+
+describe("computePricing — automatic cross-pillar bundle discount", () => {
+  it("applies no cross-pillar discount for a single-pillar (Tea only) cart", async () => {
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 1 }, { variantId: 2, qty: 1 }] }, // Blue Tea + Red Tea, both Tea
+      fakeDeps(),
+    );
+    expect(result.crossPillarDiscountPaise).toBe(0);
+    expect(result.crossPillarApplied).toBe(false);
+  });
+
+  it("applies no cross-pillar discount for a single-pillar (Masala only) cart", async () => {
+    const result = await computePricing({ lines: [{ variantId: 4, qty: 2 }] }, fakeDeps());
+    expect(result.crossPillarDiscountPaise).toBe(0);
+    expect(result.crossPillarApplied).toBe(false);
+  });
+
+  it("applies the cross-pillar discount when the cart spans Tea and Masala, as 10% of the cheapest unit", async () => {
+    // Blue Tea (50000) + Coriander (12000) — cheapest unit is the Coriander at 12000.
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 1 }, { variantId: 4, qty: 1 }] },
+      fakeDeps(),
+    );
+    expect(result.crossPillarApplied).toBe(true);
+    expect(result.crossPillarDiscountPaise).toBe(1200); // 10% of 12000
+    expect(result.subtotalPaise).toBe(62000);
+    expect(result.totalPaise).toBe(62000 - 1200); // over free-shipping threshold, no shipping
+  });
+
+  it("reads the discount percent from settings (deps), never a literal — a different configured rate changes the result", async () => {
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 1 }, { variantId: 4, qty: 1 }] },
+      fakeDeps({ getCrossPillarBundleDiscountPercent: async () => 20 }),
+    );
+    expect(result.crossPillarDiscountPaise).toBe(2400); // 20% of 12000
+  });
+
+  it("is server-recomputed and ignores anything the client might claim — no field on PricingInput accepts a discount amount", async () => {
+    // PricingInput only ever carries variantId/qty/couponCode/email; there is no way for a caller
+    // to pass a discount value in, so a "client-supplied discount" cannot even be expressed, let
+    // alone honoured. This proves the cross-pillar cart still ends up at the real server figure.
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 1 }, { variantId: 4, qty: 1 }] } as never,
+      fakeDeps(),
+    );
+    expect(result.crossPillarDiscountPaise).toBe(1200);
+    expect(result.totalPaise).toBe(62000 - 1200);
+  });
+
+  it("drops out when the qualifying Masala line is out of stock, since it never reaches priced lines", async () => {
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 1 }, { variantId: 3, qty: 1 }] }, // Blue Tea + out-of-stock Turmeric
+      fakeDeps(),
+    );
+    expect(result.crossPillarDiscountPaise).toBe(0);
+    expect(result.crossPillarApplied).toBe(false);
   });
 });
 
@@ -296,5 +425,82 @@ describe("validateCoupon — every rule as its own case", () => {
   it("applies_to: no restriction set at all is accepted", () => {
     const coupon: CouponRow = { ...WELCOME5, appliesTo: null };
     expect(validateCoupon(coupon, baseCtx)).toEqual({ ok: true });
+  });
+});
+
+describe("free gift line (2026-09-17 client rules: allowlisted SKU + not-already-in-cart pillar)", () => {
+  it("is honoured once the rest of the cart clears the real threshold, from a different pillar", async () => {
+    const result = await computePricing(
+      {
+        lines: [
+          { variantId: 1, qty: 2 }, // Blue Tea, 2x ₹500 = ₹1000, well above ₹699
+          { variantId: 5, qty: 1, isGift: true }, // Coriander 100g — a real gift SKU, spices pillar
+        ],
+      },
+      fakeDeps({ getFreeGiftThresholdPaise: async () => paise(69900) }),
+    );
+    const gift = result.lines.find((l) => l.isGift);
+    expect(gift).toBeDefined();
+    expect(gift?.unitPricePaise).toBe(0);
+    expect(gift?.mrpPaise).toBe(paise(5500)); // real MRP still shown, struck through
+    expect(gift?.qty).toBe(1);
+    expect(result.hasFreeGift).toBe(true);
+    expect(result.issues).toHaveLength(0);
+  });
+
+  it("is dropped, with an explanatory issue, when the rest of the cart is below the threshold", async () => {
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 1 }, { variantId: 5, qty: 1, isGift: true }] }, // ₹500 < ₹699
+      fakeDeps({ getFreeGiftThresholdPaise: async () => paise(69900) }),
+    );
+    expect(result.lines.some((l) => l.isGift)).toBe(false);
+    expect(result.hasFreeGift).toBe(false);
+    expect(result.issues).toContainEqual({ type: "gift_threshold_not_met", variantId: 5, thresholdPaise: paise(69900) });
+  });
+
+  it("rejects a gift request for a variant that isn't on the real allowlist (e.g. Garam Masala)", async () => {
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 2 }, { variantId: 6, qty: 1, isGift: true }] }, // Garam Masala — deliberately not a gift SKU
+      fakeDeps({ getFreeGiftThresholdPaise: async () => paise(69900) }),
+    );
+    expect(result.lines.some((l) => l.isGift)).toBe(false);
+    expect(result.issues.some((i) => i.type === "gift_not_eligible")).toBe(true);
+  });
+
+  it("rejects a gift from the SAME pillar as what's already being bought (Blue Tea buyer requesting the Blue Tea gift)", async () => {
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 2 }, { variantId: 7, qty: 1, isGift: true }] }, // both Blue Tea pillar
+      fakeDeps({ getFreeGiftThresholdPaise: async () => paise(69900) }),
+    );
+    expect(result.lines.some((l) => l.isGift)).toBe(false);
+    expect(result.issues.some((i) => i.type === "gift_not_eligible")).toBe(true);
+  });
+
+  it("honours a gift from a genuinely different pillar (Blue Tea buyer requesting the Coriander gift)", async () => {
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 2 }, { variantId: 5, qty: 1, isGift: true }] },
+      fakeDeps({ getFreeGiftThresholdPaise: async () => paise(69900) }),
+    );
+    expect(result.lines.some((l) => l.isGift && l.variantId === 5)).toBe(true);
+  });
+
+  it("never grants a free gift when no threshold is configured", async () => {
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 5 }, { variantId: 5, qty: 1, isGift: true }] },
+      fakeDeps({ getFreeGiftThresholdPaise: async () => null }),
+    );
+    expect(result.lines.some((l) => l.isGift)).toBe(false);
+    expect(result.freeGiftThresholdPaise).toBeNull();
+  });
+
+  it("a free gift is excluded from the cross-pillar Tea+Masala bundle discount trigger", async () => {
+    // Only Tea in the paid cart; the gift is a Masala-pillar item but must not count as "cart has
+    // a masala line" for the bundle discount — that discount is for a real Masala purchase.
+    const result = await computePricing(
+      { lines: [{ variantId: 1, qty: 2 }, { variantId: 5, qty: 1, isGift: true }] },
+      fakeDeps({ getFreeGiftThresholdPaise: async () => paise(69900), getCrossPillarBundleDiscountPercent: async () => 10 }),
+    );
+    expect(result.crossPillarApplied).toBe(false);
+    expect(result.crossPillarDiscountPaise).toBe(0);
   });
 });

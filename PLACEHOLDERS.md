@@ -46,3 +46,15 @@ To add a new slot: add an entry to `PLACEHOLDER_MANIFEST` in `content/placeholde
 ratio, `standsInFor` description, interim `tone`), then render it with
 `<Placeholder slot="your-new-slot" />`. Do not add an `<img>`/`next/image` call for
 not-yet-real imagery anywhere else in the codebase — always go through this manifest.
+
+## The one deliberate non-exception: the homepage founder note
+
+`components/sections/FounderStory.tsx` has no entry here and never will, on purpose. Every slot
+above stands in for a photo of a *place* or a *product* — never a face. CLAUDE.md §8 and
+`Placeholder.tsx`'s own contract both rule out "a human face presented as a named person," which is
+exactly what a founder photo is. A placeholder slot for it would risk shipping a stand-in image that
+reads as the real founder, which is the one failure mode this manifest exists to prevent.
+
+So that section is built to read as finished with text alone, and stays that way until a real
+portrait exists — at which point it's added directly as a normal `next/image`, not through this
+system. See the component's own header comment for the exact swap-in code.
