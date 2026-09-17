@@ -78,17 +78,25 @@ function ReviewCard({ review, onOpenPhoto }: { review: ReviewPageItem; onOpenPho
   );
 }
 
+const PREVIEW_COUNT = 5;
+
 /**
- * Rating histogram, approved-only review list (sortable, paginated), a photo lightbox, and the
- * submission form — all in one section anchored at `#reviews` so BuyBox's rating link can scroll
- * to it (PROMPTS.md Phase 4 item 3/7). The histogram and list are real approved-review data, which
- * is zero everywhere pre-launch (CLAUDE.md §8: no seeded/sample reviews, ever) — that all-zero
- * state renders honestly rather than being hidden or faked.
+ * Rating histogram, a top-5 preview of approved reviews, a "Show all" popup carrying the full
+ * sortable/paginated list, a photo lightbox, and the submission form — all in one section anchored
+ * at `#reviews` so BuyBox's rating link can scroll to it (PROMPTS.md Phase 4 item 3/7). The
+ * histogram and list are real approved-review data, which is zero everywhere pre-launch
+ * (CLAUDE.md §8: no seeded/sample reviews, ever) — that all-zero state renders honestly rather
+ * than being hidden or faked.
+ *
+ * Only the top 5 (most recent, since `initialPage` is always fetched with `sort: "recent"`) render
+ * inline — everything else, plus sort/pagination, lives behind "Show all N reviews" so a product
+ * with hundreds of reviews doesn't turn the PDP itself into one long scroll.
  */
 export function Reviews({ productSlug, productName, summary, initialPage }: ReviewsProps) {
   const [sort, setSort] = useState<ReviewSort>("recent");
   const [page, setPage] = useState(initialPage);
   const [lightbox, setLightbox] = useState<{ url: string; alt: string } | null>(null);
+  const [showAllOpen, setShowAllOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const refetch = (nextSort: ReviewSort, nextPageNum: number) => {
@@ -99,6 +107,7 @@ export function Reviews({ productSlug, productName, summary, initialPage }: Revi
   };
 
   const totalPages = Math.max(1, Math.ceil(page.total / page.pageSize));
+  const previewItems = initialPage.items.slice(0, PREVIEW_COUNT);
 
   return (
     <section id="reviews" aria-labelledby="reviews-heading" className="w-full scroll-mt-24">
@@ -124,7 +133,53 @@ export function Reviews({ productSlug, productName, summary, initialPage }: Revi
         </div>
 
         <div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          {previewItems.length === 0 ? (
+            <p className="text-sm text-ink-2">No approved reviews to show yet.</p>
+          ) : (
+            <>
+              {previewItems.map((review) => (
+                <ReviewCard key={review.id} review={review} onOpenPhoto={(url, alt) => setLightbox({ url, alt })} />
+              ))}
+
+              {summary.count > PREVIEW_COUNT && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllOpen(true)}
+                  className="mt-4 h-10 rounded-md border border-line px-4 text-sm font-semibold text-ink hover:bg-surface-2"
+                >
+                  Show all {summary.count} reviews
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-12 border-t border-line pt-8">
+        <h3 className="font-display text-xl font-semibold text-ink">Write a review</h3>
+        <ReviewForm productSlug={productSlug} />
+      </div>
+
+      <Dialog open={lightbox != null} onOpenChange={(open) => !open && setLightbox(null)}>
+        <DialogContent className="max-w-xl bg-surface p-2">
+          <VisuallyHidden>
+            <DialogTitle>{lightbox?.alt ?? "Review photo"}</DialogTitle>
+          </VisuallyHidden>
+          {lightbox && (
+            <div className="relative w-full overflow-hidden rounded-md" style={{ aspectRatio: "1 / 1" }}>
+              <Image src={lightbox.url} alt={lightbox.alt} fill className="object-contain" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAllOpen} onOpenChange={setShowAllOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto bg-surface p-6">
+          <DialogTitle className="font-display text-xl font-semibold text-ink">
+            All reviews for {productName}
+          </DialogTitle>
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <label className="flex items-center gap-2 text-sm text-ink-2">
               Sort by
               <select
@@ -148,11 +203,7 @@ export function Reviews({ productSlug, productName, summary, initialPage }: Revi
               <p className="mt-6 text-sm text-ink-2">No approved reviews to show yet.</p>
             ) : (
               page.items.map((review) => (
-                <ReviewCard
-                  key={review.id}
-                  review={review}
-                  onOpenPhoto={(url, alt) => setLightbox({ url, alt })}
-                />
+                <ReviewCard key={review.id} review={review} onOpenPhoto={(url, alt) => setLightbox({ url, alt })} />
               ))
             )}
           </div>
@@ -166,24 +217,6 @@ export function Reviews({ productSlug, productName, summary, initialPage }: Revi
             }}
             className="mt-4"
           />
-        </div>
-      </div>
-
-      <div className="mt-12 border-t border-line pt-8">
-        <h3 className="font-display text-xl font-semibold text-ink">Write a review</h3>
-        <ReviewForm productSlug={productSlug} />
-      </div>
-
-      <Dialog open={lightbox != null} onOpenChange={(open) => !open && setLightbox(null)}>
-        <DialogContent className="max-w-xl bg-surface p-2">
-          <VisuallyHidden>
-            <DialogTitle>{lightbox?.alt ?? "Review photo"}</DialogTitle>
-          </VisuallyHidden>
-          {lightbox && (
-            <div className="relative w-full overflow-hidden rounded-md" style={{ aspectRatio: "1 / 1" }}>
-              <Image src={lightbox.url} alt={lightbox.alt} fill className="object-contain" />
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </section>

@@ -120,7 +120,9 @@ export async function getReviewsPageAction(
     ...result,
     items: result.items.map((item) => ({
       ...item,
-      createdAt: item.createdAt.toISOString(),
+      // Same `unstable_cache` JSON-round-trip caveat as app/product/[slug]/page.tsx: `createdAt`
+      // may already be a string by the time it gets here.
+      createdAt: new Date(item.createdAt).toISOString(),
       photos: item.photos
         .map((p) => ({ id: p.id, url: safePublicUrl(p.storageKey) }))
         .filter((p): p is ReviewPagePhoto => p.url != null),

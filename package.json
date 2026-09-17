@@ -34,6 +34,7 @@
     "create-staff-user": "tsx --env-file-if-exists=.env scripts/create-staff-user.ts",
     "add-lucky10-coupon": "tsx --env-file-if-exists=.env scripts/add-lucky10-coupon.ts",
     "cleanup-test-data": "tsx --env-file-if-exists=.env scripts/cleanup-test-data.ts",
+    "import-reviews-csv": "tsx --env-file-if-exists=.env scripts/import-reviews-csv.ts",
     "migrate-corporate-gifting-hero": "tsx --env-file-if-exists=.env scripts/migrate-corporate-gifting-hero.ts",
     "migrate-gifting-images": "tsx --env-file-if-exists=.env scripts/migrate-gifting-images.ts",
     "set-support-email": "tsx --env-file-if-exists=.env scripts/set-support-email.ts",

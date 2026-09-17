@@ -78,6 +78,14 @@ const nextConfig: NextConfig = {
     remotePatterns: storageRemotePattern(),
     dangerouslyAllowLocalIP: storageIsLoopback(),
   },
+  // LOCAL-DEV-ONLY, not for commit: proxies the local Supabase Storage port (54421) through this
+  // app's own origin (3000) so images work in environments where only port 3000 is forwarded to
+  // the browser (e.g. this VSCode session). STORAGE_ORIGIN is the real 127.0.0.1:54421 origin.
+  async rewrites() {
+    const storageOrigin = process.env.STORAGE_ORIGIN;
+    if (!storageOrigin) return [];
+    return [{ source: "/storage-proxy/:path*", destination: `${storageOrigin}/storage/v1/:path*` }];
+  },
 };
 
 export default nextConfig;

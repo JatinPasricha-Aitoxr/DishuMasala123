@@ -243,6 +243,31 @@ p {
   }
 }
 
+/*
+ * The homepage's second (post-hero) benefits strip, TeaBenefitsMarquee — visually the same
+ * `.trust-marquee-track` treatment as TrustStrip, but scrolling the opposite direction on
+ * purpose so the two strips read as a deliberate pair rather than the same motion repeated.
+ * TrustStrip goes translateX(0) -> translateX(-50%) (content drifts right-to-left); this one
+ * runs that exact same distance in reverse.
+ */
+.trust-marquee-track-reverse {
+  display: flex;
+  width: max-content;
+  animation: trust-marquee-reverse 9s linear infinite;
+}
+.trust-marquee-track-reverse:hover {
+  animation-play-state: paused;
+}
+@keyframes trust-marquee-reverse {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trust-marquee-track-reverse {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

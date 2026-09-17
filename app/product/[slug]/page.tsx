@@ -149,7 +149,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
     ...reviewsFirstPage,
     items: reviewsFirstPage.items.map((item) => ({
       ...item,
-      createdAt: item.createdAt.toISOString(),
+      // `getApprovedReviews` is wrapped in `unstable_cache`, which JSON-serializes its return
+      // value — `createdAt` comes back as an ISO string, not a `Date`, on every cache hit (it only
+      // looked like a `Date` before because this path had never run against a non-empty review
+      // list). Normalize through `new Date(...)` so this works whether the cache handed back a
+      // string or a real `Date`.
+      createdAt: new Date(item.createdAt).toISOString(),
       photos: item.photos
         .map((p) => {
           const url = safeImageUrl(p.storageKey);

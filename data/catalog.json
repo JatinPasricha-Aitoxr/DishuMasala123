@@ -63,31 +63,31 @@
       ],
       "variations": [
         {
-          "sku": "0024-36",
-          "option": "36",
-          "mrp": 349.0,
-          "price": 324.0,
-          "discountPct": 7,
+          "sku": "0024-S",
+          "option": "Starter (1 Pack)",
+          "mrp": 349,
+          "price": 349,
+          "discountPct": 0,
           "inStock": true
         },
         {
-          "sku": "0024-36-2PK",
-          "option": "36 x2",
-          "mrp": 698.0,
-          "price": 628.0,
+          "sku": "0024-V",
+          "option": "Value (2 Packs)",
+          "mrp": 698,
+          "price": 628,
           "discountPct": 10,
           "inStock": true
         },
         {
-          "sku": "0024-36-4PK",
-          "option": "36 x4",
-          "mrp": 1396.0,
-          "price": 1117.0,
+          "sku": "0024-T",
+          "option": "Transformation (3 Packs)",
+          "mrp": 1047,
+          "price": 838,
           "discountPct": 20,
           "inStock": true
         }
       ],
-      "priceFrom": 324.0
+      "priceFrom": 349
     },
     {
       "wooId": 9078,
@@ -113,15 +113,15 @@
         {
           "sku": "0023-52-gm",
           "option": "52 gm",
-          "mrp": 299.0,
-          "price": 269.0,
+          "mrp": 299,
+          "price": 269,
           "discountPct": 10,
           "inStock": true
         },
         {
           "sku": "0023-20-gm",
           "option": "20 gm",
-          "mrp": 115.0,
+          "mrp": 115,
           "price": 103.46,
           "discountPct": 10,
           "inStock": true,
@@ -130,29 +130,29 @@
         {
           "sku": "0023-52-gm-2PK",
           "option": "52 gm x2",
-          "mrp": 598.0,
-          "price": 484.0,
+          "mrp": 598,
+          "price": 484,
           "discountPct": 19,
           "inStock": true
         },
         {
           "sku": "0023-52-gm-4PK",
           "option": "52 gm x4",
-          "mrp": 1196.0,
-          "price": 861.0,
+          "mrp": 1196,
+          "price": 861,
           "discountPct": 28,
           "inStock": true
         },
         {
           "sku": "0023-105-gm",
           "option": "105 gm",
-          "mrp": 549.0,
-          "price": 494.0,
+          "mrp": 549,
+          "price": 494,
           "discountPct": 10,
           "inStock": true
         }
       ],
-      "priceFrom": 269.0
+      "priceFrom": 269
     },
     {
       "wooId": 9090,
@@ -177,30 +177,30 @@
       "variations": [
         {
           "sku": "0033-36",
-          "option": "36",
-          "mrp": 349.0,
-          "price": 314.0,
+          "option": "Starter (36 Teabags)",
+          "mrp": 349,
+          "price": 314,
           "discountPct": 10,
           "inStock": true
         },
         {
           "sku": "0033-36-2PK",
-          "option": "36 x2",
-          "mrp": 698.0,
-          "price": 565.0,
+          "option": "Value (72 Teabags)",
+          "mrp": 698,
+          "price": 565,
           "discountPct": 19,
           "inStock": true
         },
         {
           "sku": "0033-36-4PK",
-          "option": "36 x4",
-          "mrp": 1396.0,
-          "price": 1005.0,
+          "option": "Transformation (144 Teabags)",
+          "mrp": 1396,
+          "price": 1005,
           "discountPct": 28,
           "inStock": true
         }
       ],
-      "priceFrom": 314.0
+      "priceFrom": 314
     },
     {
       "wooId": 9084,
@@ -226,8 +226,8 @@
         {
           "sku": "0032-52-gm",
           "option": "52 gm",
-          "mrp": 259.0,
-          "price": 233.0,
+          "mrp": 259,
+          "price": 233,
           "discountPct": 10,
           "inStock": true
         },
@@ -243,29 +243,29 @@
         {
           "sku": "0032-52-gm-2PK",
           "option": "52 gm x2",
-          "mrp": 518.0,
-          "price": 419.0,
+          "mrp": 518,
+          "price": 419,
           "discountPct": 19,
           "inStock": true
         },
         {
           "sku": "0032-52-gm-4PK",
           "option": "52 gm x4",
-          "mrp": 1036.0,
-          "price": 746.0,
+          "mrp": 1036,
+          "price": 746,
           "discountPct": 28,
           "inStock": true
         },
         {
           "sku": "0032-105-gm",
           "option": "105 gm",
-          "mrp": 480.0,
-          "price": 432.0,
+          "mrp": 480,
+          "price": 432,
           "discountPct": 10,
           "inStock": true
         }
       ],
-      "priceFrom": 233.0
+      "priceFrom": 233
     },
     {
       "wooId": 9082,
@@ -291,29 +291,29 @@
         {
           "sku": "0034-500-gm",
           "option": "500 gm",
-          "mrp": 279.0,
-          "price": 200.0,
+          "mrp": 279,
+          "price": 200,
           "discountPct": 28,
           "inStock": true
         },
         {
           "sku": "0034-500-gm-2PK",
           "option": "500 gm x2",
-          "mrp": 558.0,
-          "price": 360.0,
+          "mrp": 558,
+          "price": 360,
           "discountPct": 35,
           "inStock": true
         },
         {
           "sku": "0034-500-gm-4PK",
           "option": "500 gm x4",
-          "mrp": 1116.0,
-          "price": 640.0,
+          "mrp": 1116,
+          "price": 640,
           "discountPct": 43,
           "inStock": true
         }
       ],
-      "priceFrom": 200.0
+      "priceFrom": 200
     },
     {
       "wooId": 9088,
@@ -339,29 +339,29 @@
         {
           "sku": "0031-500-gm",
           "option": "500 gm",
-          "mrp": 239.0,
-          "price": 190.0,
+          "mrp": 239,
+          "price": 190,
           "discountPct": 21,
           "inStock": true
         },
         {
           "sku": "0031-500-gm-2PK",
           "option": "500 gm x2",
-          "mrp": 478.0,
-          "price": 342.0,
+          "mrp": 478,
+          "price": 342,
           "discountPct": 28,
           "inStock": true
         },
         {
           "sku": "0031-500-gm-4PK",
           "option": "500 gm x4",
-          "mrp": 956.0,
-          "price": 608.0,
+          "mrp": 956,
+          "price": 608,
           "discountPct": 36,
           "inStock": true
         }
       ],
-      "priceFrom": 190.0
+      "priceFrom": 190
     },
     {
       "wooId": 9092,
@@ -387,16 +387,16 @@
         {
           "sku": "0035-250-gm",
           "option": "250 gm",
-          "mrp": 140.0,
-          "price": 100.0,
+          "mrp": 140,
+          "price": 100,
           "discountPct": 29,
           "inStock": true
         },
         {
           "sku": "0035-100-gm",
           "option": "100 gm",
-          "mrp": 56.0,
-          "price": 40.0,
+          "mrp": 56,
+          "price": 40,
           "discountPct": 29,
           "inStock": true,
           "_note": "PLACEHOLDER pricing, proportionally derived from the existing larger pack — pending real client-confirmed price (2026-09-17 decision)."
@@ -404,21 +404,21 @@
         {
           "sku": "0035-250-gm-2PK",
           "option": "250 gm x2",
-          "mrp": 280.0,
-          "price": 180.0,
+          "mrp": 280,
+          "price": 180,
           "discountPct": 36,
           "inStock": true
         },
         {
           "sku": "0035-250-gm-4PK",
           "option": "250 gm x4",
-          "mrp": 560.0,
-          "price": 320.0,
+          "mrp": 560,
+          "price": 320,
           "discountPct": 43,
           "inStock": true
         }
       ],
-      "priceFrom": 100.0
+      "priceFrom": 100
     },
     {
       "wooId": 9080,
@@ -444,16 +444,16 @@
         {
           "sku": "0030-250-gm",
           "option": "250 gm",
-          "mrp": 120.0,
-          "price": 95.0,
+          "mrp": 120,
+          "price": 95,
           "discountPct": 21,
           "inStock": true
         },
         {
           "sku": "0030-100-gm",
           "option": "100 gm",
-          "mrp": 48.0,
-          "price": 38.0,
+          "mrp": 48,
+          "price": 38,
           "discountPct": 21,
           "inStock": true,
           "_note": "PLACEHOLDER pricing, proportionally derived from the existing larger pack — pending real client-confirmed price (2026-09-17 decision)."
@@ -461,21 +461,21 @@
         {
           "sku": "0030-250-gm-2PK",
           "option": "250 gm x2",
-          "mrp": 240.0,
-          "price": 171.0,
+          "mrp": 240,
+          "price": 171,
           "discountPct": 29,
           "inStock": true
         },
         {
           "sku": "0030-250-gm-4PK",
           "option": "250 gm x4",
-          "mrp": 480.0,
-          "price": 304.0,
+          "mrp": 480,
+          "price": 304,
           "discountPct": 37,
           "inStock": true
         }
       ],
-      "priceFrom": 95.0
+      "priceFrom": 95
     },
     {
       "wooId": 8507,
@@ -502,13 +502,13 @@
         {
           "sku": "0029-100-gm-x-3",
           "option": "100 gm x 3",
-          "mrp": 382.0,
-          "price": 279.0,
+          "mrp": 382,
+          "price": 279,
           "discountPct": 27,
           "inStock": true
         }
       ],
-      "priceFrom": 279.0
+      "priceFrom": 279
     },
     {
       "wooId": 8492,
@@ -534,13 +534,13 @@
         {
           "sku": "0017-100-gm-x-2",
           "option": "100 gm x 2",
-          "mrp": 283.0,
-          "price": 245.0,
+          "mrp": 283,
+          "price": 245,
           "discountPct": 13,
           "inStock": true
         }
       ],
-      "priceFrom": 245.0
+      "priceFrom": 245
     },
     {
       "wooId": 8495,
@@ -566,13 +566,13 @@
         {
           "sku": "0016-100-gm-x-2",
           "option": "100 gm x 2",
-          "mrp": 283.0,
-          "price": 210.0,
+          "mrp": 283,
+          "price": 210,
           "discountPct": 26,
           "inStock": true
         }
       ],
-      "priceFrom": 210.0
+      "priceFrom": 210
     },
     {
       "wooId": 8500,
@@ -599,21 +599,21 @@
         {
           "sku": "0028-100-gm-x-3",
           "option": "100 gm x 3",
-          "mrp": 175.0,
-          "price": 151.0,
+          "mrp": 175,
+          "price": 151,
           "discountPct": 14,
           "inStock": true
         },
         {
           "sku": "0028-200-gm-x-3",
           "option": "200 gm x 3",
-          "mrp": 297.0,
-          "price": 240.0,
+          "mrp": 297,
+          "price": 240,
           "discountPct": 19,
           "inStock": true
         }
       ],
-      "priceFrom": 151.0
+      "priceFrom": 151
     },
     {
       "wooId": 1002,
@@ -639,21 +639,21 @@
         {
           "sku": "0020-100-gm-x-2",
           "option": "100 gm x 2",
-          "mrp": 120.0,
-          "price": 104.0,
+          "mrp": 120,
+          "price": 104,
           "discountPct": 13,
           "inStock": true
         },
         {
           "sku": "0020-200-gm-x-2",
           "option": "200 gm x 2",
-          "mrp": 198.0,
-          "price": 162.0,
+          "mrp": 198,
+          "price": 162,
           "discountPct": 18,
           "inStock": true
         }
       ],
-      "priceFrom": 104.0
+      "priceFrom": 104
     },
     {
       "wooId": 8486,
@@ -679,21 +679,21 @@
         {
           "sku": "0019-100-gm-x-2",
           "option": "100 gm x 2",
-          "mrp": 115.0,
-          "price": 99.0,
+          "mrp": 115,
+          "price": 99,
           "discountPct": 14,
           "inStock": true
         },
         {
           "sku": "0019-200-gm-x-2",
           "option": "200 gm x 2",
-          "mrp": 198.0,
-          "price": 158.0,
+          "mrp": 198,
+          "price": 158,
           "discountPct": 20,
           "inStock": true
         }
       ],
-      "priceFrom": 99.0
+      "priceFrom": 99
     },
     {
       "wooId": 8489,
@@ -719,21 +719,21 @@
         {
           "sku": "0018-100-gm-x-2",
           "option": "100 gm x 2",
-          "mrp": 115.0,
-          "price": 99.0,
+          "mrp": 115,
+          "price": 99,
           "discountPct": 14,
           "inStock": true
         },
         {
           "sku": "0018-200-gm-x-2",
           "option": "200 gm x 2",
-          "mrp": 198.0,
-          "price": 158.0,
+          "mrp": 198,
+          "price": 158,
           "discountPct": 20,
           "inStock": true
         }
       ],
-      "priceFrom": 99.0
+      "priceFrom": 99
     },
     {
       "wooId": 7471,
@@ -762,29 +762,29 @@
         {
           "sku": "0027-100-gm",
           "option": "100 gm",
-          "mrp": 184.0,
-          "price": 165.0,
+          "mrp": 184,
+          "price": 165,
           "discountPct": 10,
           "inStock": true
         },
         {
           "sku": "0027-100-gm-2PK",
           "option": "100 gm x2",
-          "mrp": 368.0,
-          "price": 297.0,
+          "mrp": 368,
+          "price": 297,
           "discountPct": 19,
           "inStock": true
         },
         {
           "sku": "0027-100-gm-4PK",
           "option": "100 gm x4",
-          "mrp": 736.0,
-          "price": 528.0,
+          "mrp": 736,
+          "price": 528,
           "discountPct": 28,
           "inStock": true
         }
       ],
-      "priceFrom": 165.0
+      "priceFrom": 165
     },
     {
       "wooId": 3133,
@@ -813,37 +813,37 @@
         {
           "sku": "0025-100-gm",
           "option": "100 gm",
-          "mrp": 99.0,
-          "price": 85.0,
+          "mrp": 99,
+          "price": 85,
           "discountPct": 14,
           "inStock": true
         },
         {
           "sku": "0025-100-gm-2PK",
           "option": "100 gm x2",
-          "mrp": 198.0,
-          "price": 153.0,
+          "mrp": 198,
+          "price": 153,
           "discountPct": 23,
           "inStock": true
         },
         {
           "sku": "0025-100-gm-4PK",
           "option": "100 gm x4",
-          "mrp": 396.0,
-          "price": 272.0,
+          "mrp": 396,
+          "price": 272,
           "discountPct": 31,
           "inStock": true
         },
         {
           "sku": "0025-200-gm",
           "option": "200 gm",
-          "mrp": 190.0,
-          "price": 160.0,
+          "mrp": 190,
+          "price": 160,
           "discountPct": 16,
           "inStock": true
         }
       ],
-      "priceFrom": 85.0
+      "priceFrom": 85
     },
     {
       "wooId": 996,
@@ -872,37 +872,37 @@
         {
           "sku": "0021-100-gm",
           "option": "100 gm",
-          "mrp": 60.0,
-          "price": 54.0,
+          "mrp": 60,
+          "price": 54,
           "discountPct": 10,
           "inStock": true
         },
         {
           "sku": "0021-100-gm-2PK",
           "option": "100 gm x2",
-          "mrp": 120.0,
-          "price": 97.0,
+          "mrp": 120,
+          "price": 97,
           "discountPct": 19,
           "inStock": true
         },
         {
           "sku": "0021-100-gm-4PK",
           "option": "100 gm x4",
-          "mrp": 240.0,
-          "price": 173.0,
+          "mrp": 240,
+          "price": 173,
           "discountPct": 28,
           "inStock": true
         },
         {
           "sku": "0021-200-gm",
           "option": "200 gm",
-          "mrp": 99.0,
-          "price": 84.0,
+          "mrp": 99,
+          "price": 84,
           "discountPct": 15,
           "inStock": true
         }
       ],
-      "priceFrom": 54.0
+      "priceFrom": 54
     },
     {
       "wooId": 2947,
@@ -931,37 +931,37 @@
         {
           "sku": "0022-100-gm",
           "option": "100 gm",
-          "mrp": 60.0,
-          "price": 54.0,
+          "mrp": 60,
+          "price": 54,
           "discountPct": 10,
           "inStock": true
         },
         {
           "sku": "0022-100-gm-2PK",
           "option": "100 gm x2",
-          "mrp": 120.0,
-          "price": 97.0,
+          "mrp": 120,
+          "price": 97,
           "discountPct": 19,
           "inStock": true
         },
         {
           "sku": "0022-100-gm-4PK",
           "option": "100 gm x4",
-          "mrp": 240.0,
-          "price": 173.0,
+          "mrp": 240,
+          "price": 173,
           "discountPct": 28,
           "inStock": true
         },
         {
           "sku": "0022-200-gm",
           "option": "200 gm",
-          "mrp": 99.0,
-          "price": 84.0,
+          "mrp": 99,
+          "price": 84,
           "discountPct": 15,
           "inStock": true
         }
       ],
-      "priceFrom": 54.0
+      "priceFrom": 54
     },
     {
       "wooId": 3137,
@@ -990,37 +990,37 @@
         {
           "sku": "0026-100-gm",
           "option": "100 gm",
-          "mrp": 55.0,
-          "price": 48.0,
+          "mrp": 55,
+          "price": 48,
           "discountPct": 13,
           "inStock": true
         },
         {
           "sku": "0026-100-gm-2PK",
           "option": "100 gm x2",
-          "mrp": 110.0,
-          "price": 86.0,
+          "mrp": 110,
+          "price": 86,
           "discountPct": 22,
           "inStock": true
         },
         {
           "sku": "0026-100-gm-4PK",
           "option": "100 gm x4",
-          "mrp": 220.0,
-          "price": 154.0,
+          "mrp": 220,
+          "price": 154,
           "discountPct": 30,
           "inStock": true
         },
         {
           "sku": "0026-200-gm",
           "option": "200 gm",
-          "mrp": 99.0,
-          "price": 80.0,
+          "mrp": 99,
+          "price": 80,
           "discountPct": 19,
           "inStock": true
         }
       ],
-      "priceFrom": 48.0
+      "priceFrom": 48
     },
     {
       "wooId": 2000,
@@ -1042,21 +1042,21 @@
         {
           "sku": "0040-52-gm-x-2",
           "option": "52 gm x 2",
-          "mrp": 558.0,
-          "price": 558.0,
+          "mrp": 558,
+          "price": 558,
           "discountPct": 0,
           "inStock": true
         },
         {
           "sku": "0040-105-gm-x-2",
           "option": "105 gm x 2",
-          "mrp": 1048.0,
-          "price": 1048.0,
+          "mrp": 1048,
+          "price": 1048,
           "discountPct": 0,
           "inStock": true
         }
       ],
-      "priceFrom": 558.0
+      "priceFrom": 558
     },
     {
       "wooId": 2001,
@@ -1078,13 +1078,13 @@
         {
           "sku": "0041-72-teabags",
           "option": "72 teabags (36 + 36)",
-          "mrp": 698.0,
-          "price": 698.0,
+          "mrp": 698,
+          "price": 698,
           "discountPct": 0,
           "inStock": true
         }
       ],
-      "priceFrom": 698.0
+      "priceFrom": 698
     },
     {
       "wooId": 2002,
@@ -1106,21 +1106,21 @@
         {
           "sku": "0042-52-gm-x-2",
           "option": "52 gm x 2",
-          "mrp": 598.0,
-          "price": 598.0,
+          "mrp": 598,
+          "price": 598,
           "discountPct": 0,
           "inStock": true
         },
         {
           "sku": "0042-105-gm-x-2",
           "option": "105 gm x 2",
-          "mrp": 1098.0,
-          "price": 1098.0,
+          "mrp": 1098,
+          "price": 1098,
           "discountPct": 0,
           "inStock": true
         }
       ],
-      "priceFrom": 598.0
+      "priceFrom": 598
     },
     {
       "wooId": 2003,
@@ -1142,21 +1142,21 @@
         {
           "sku": "0043-52-gm-x-2",
           "option": "52 gm x 2",
-          "mrp": 518.0,
-          "price": 518.0,
+          "mrp": 518,
+          "price": 518,
           "discountPct": 0,
           "inStock": true
         },
         {
           "sku": "0043-105-gm-x-2",
           "option": "105 gm x 2",
-          "mrp": 998.0,
-          "price": 998.0,
+          "mrp": 998,
+          "price": 998,
           "discountPct": 0,
           "inStock": true
         }
       ],
-      "priceFrom": 518.0
+      "priceFrom": 518
     }
   ]
 }

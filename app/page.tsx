@@ -12,6 +12,7 @@ import {
 import { PromoBannerSlider } from "@/components/hero/PromoBannerSlider";
 import { TrustStrip } from "@/components/layout/TrustStrip";
 import { CategoryCircles, type CategoryCircleItem } from "@/components/sections/CategoryCircles";
+import { TeaBenefitsMarquee } from "@/components/sections/TeaBenefitsMarquee";
 import { FounderStory } from "@/components/sections/FounderStory";
 import { BlueTeaBand } from "@/components/sections/BlueTeaBand";
 import { RedTeaSection } from "@/components/sections/RedTeaSection";
@@ -190,6 +191,7 @@ export default async function Home() {
       <TrustStrip />
       <CategoryCircles items={categoryCircleItems} />
       <PromoBannerSlider banners={banners} />
+      <TeaBenefitsMarquee />
       <FounderStory />
       <ScrollColorBand fromVar="--color-brew-2" viaVar="--color-brew-5" toVar="--color-hibiscus" className="w-full">
         <BlueTeaBand products={blueTea} />
