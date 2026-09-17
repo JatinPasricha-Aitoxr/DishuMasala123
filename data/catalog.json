@@ -1,7 +1,7 @@
 {
   "currency": "INR",
-  "freeShippingThreshold": 500,
-  "priorityRule": "Blue Tea (1) > Red Tea (2) > other teas (3) > combo packs (4) > single spices (5). Lower rank = higher placement everywhere.",
+  "freeShippingThreshold": 499,
+  "priorityRule": "Two co-equal pillars, Tea and Masala, interleaved rather than cascaded (CLAUDE.md §7.2, amended): Blue Tea (1) > Spices (2) > Red Tea (3) > Combo Packs (4) > Classic & Assam (5). Lower rank = higher placement everywhere. Blue Tea keeps the single strongest lead hook (the Lemon Shift), but the very next slot is Masala, not more tea — a visitor no longer has to clear the entire tea range before the site shows a single spice product.",
   "collections": [
     {
       "slug": "blue-tea",
@@ -13,25 +13,31 @@
       "slug": "red-tea",
       "title": "Red Tea",
       "tagline": "Hibiscus-led herbal infusion",
-      "rank": 2
+      "rank": 3
     },
     {
       "slug": "classic-teas",
       "title": "Classic & Assam",
       "tagline": "Everyday strength, garden-fresh",
-      "rank": 3
+      "rank": 5
     },
     {
       "slug": "combos",
-      "title": "Combo Packs",
-      "tagline": "Pantry sets, better value",
+      "title": "Spice Combos",
+      "tagline": "Everyday spice sets, better value",
       "rank": 4
     },
     {
       "slug": "spices",
       "title": "Spices",
       "tagline": "Single-origin, double-layer packed",
-      "rank": 5
+      "rank": 2
+    },
+    {
+      "slug": "tea-combos",
+      "title": "Tea Combos",
+      "tagline": "Blue and Red, paired and doubled",
+      "rank": 6
     }
   ],
   "products": [
@@ -48,8 +54,8 @@
         "tea"
       ],
       "optionLabel": "Teabags",
-      "shortDescription": "Blue Tea is a premium herbal infusion made from carefully selected Butterfly Pea Flowers. Naturally caffeine-free, it is loved for its beautiful blue colour, delicate floral flavour, and refreshing taste, making it an ideal beverage for everyday wellness.\n\nKey Characteristics:\n\nFlavor: Mild, floral, and slightly earthy.\nAroma: Fresh and naturally floral.\nIngredients: Butterfly Pea Flower, Spearmint, Ginger, Dandelion, Cinnamon & Lemongrass.\nColor: Brilliant blue that transforms into purple when mixed with lemon.",
-      "description": "Blue Tea is a naturally caffeine-free herbal tea made from premium Butterfly Pea Flowers. Renowned for its vibrant deep blue colour, delicate floral taste, and wellness benefits, it offers a refreshing and soothing tea experience. It can also change colour to purple when lemon is added, making it both visually appealing and enjoyable.\n\nKey Characteristics:\n\nFlavor: Mild, earthy, and subtly floral with a smooth finish.\nAroma: Light, fresh, and naturally floral.\nIngredients: Butterfly Pea Flower, Spearmint, Ginger, Dandelion, Cinnamon & Lemongrass.\nColor: Deep blue infusion that turns purple with lemon.\n\nCulinary Uses:\n\nHerbal Tea: Enjoy hot or iced as a refreshing caffeine-free beverage.\nMocktails & Cocktails: Adds a stunning natural blue hue to drinks.\nSmoothies & Lemonades: Blends beautifully for colourful, healthy beverages.\nDesserts: Used to naturally colour cakes, puddings, jellies, and ice creams.\nRice & Food Coloring: A natural food colour for rice, noodles, and other recipes.\n\nHealth Benefits:\n\nRich in Antioxidants: Helps protect the body from free radical damage.\nSupports Healthy Skin & Hair: Traditionally valued for promoting natural beauty.\nPromotes Relaxation: A calming herbal tea that helps you unwind.\nSupports Digestion & Wellness: May aid digestion and contribute to overall well-being.\nNaturally Caffeine-Free: A perfect tea to enjoy any time of the day.\n\nStorage:\n\nStore in an airtight container in a cool, dry place away from direct sunlight.\nKeep the pack tightly sealed after every use to maintain freshness, aroma, and colour.\nFor the best flavour and quality, consume within the recommended period after opening.",
+      "shortDescription": "Sip wellness with Dishu Masala Premium Herbal Blue Tea teabags, brewed from 100% natural butterfly-pea flowers. This caffeine-free herbal tea steeps into a mesmerising blue that turns purple with a squeeze of lemon. Antioxidant-rich, clean-label and preservative-free, each teabag makes a soothing, refreshing cup for daily wellness or a calming evening ritual.",
+      "description": "Blue Tea is a naturally caffeine-free herbal tea made from premium Butterfly Pea Flowers. Renowned for its vibrant deep blue colour, delicate floral taste, and wellness benefits, it offers a refreshing and soothing tea experience. It can also change colour to purple when lemon is added, making it both visually appealing and enjoyable.\n\nKey Characteristics:\n\nFlavor: Mild, earthy, and subtly floral with a smooth finish.\nAroma: Light, fresh, and naturally floral.\nIngredients: Butterfly Pea Flower, Spearmint, Ginger, Dandelion, Cinnamon & Lemongrass.\nColor: Deep blue infusion that turns purple with lemon.\n\nCulinary Uses:\n\nHerbal Tea: Enjoy hot or iced as a refreshing caffeine-free beverage.\nMocktails & Cocktails: Adds a stunning natural blue hue to drinks.\nSmoothies & Lemonades: Blends beautifully for colourful, healthy beverages.\nDesserts: Used to naturally colour cakes, puddings, jellies, and ice creams.\nRice & Food Coloring: A natural food colour for rice, noodles, and other recipes.\n\nHealth Benefits:\n\nDishu Masala Blue Tea is a potent blend of Butterfly Pea, Lemongrass, Ginger, and Spearmint that boosts metabolism, burns fat, reduces bloating, and aids digestion for a healthier, slimmer you!\nPromotes weight loss\nReduces cravings & Boosts metabolism\nImproves digestive health\nFlushes out toxins\nCaffeine-free & keto-friendly\nKickstart your fat loss journey by sipping on Dishu Masala Blue Tea 3 times a day, and pair it with a balanced diet for best results!\n\nStorage:\n\nStore in an airtight container in a cool, dry place away from direct sunlight.\nKeep the pack tightly sealed after every use to maintain freshness, aroma, and colour.\nFor the best flavour and quality, consume within the recommended period after opening.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image6-1.jpg",
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image6-2.jpg",
@@ -62,6 +68,22 @@
           "mrp": 349.0,
           "price": 324.0,
           "discountPct": 7,
+          "inStock": true
+        },
+        {
+          "sku": "0024-36-2PK",
+          "option": "36 x2",
+          "mrp": 698.0,
+          "price": 628.0,
+          "discountPct": 10,
+          "inStock": true
+        },
+        {
+          "sku": "0024-36-4PK",
+          "option": "36 x4",
+          "mrp": 1396.0,
+          "price": 1117.0,
+          "discountPct": 20,
           "inStock": true
         }
       ],
@@ -80,8 +102,8 @@
         "tea"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Blue Tea (Loose) is a premium herbal tea made from carefully selected Butterfly Pea Flowers, known for its beautiful natural blue colour and gentle floral flavour. Naturally caffeine-free and rich in antioxidants, it offers a refreshing and healthy beverage that can be enjoyed hot or cold.\n\nKey Characteristics:\n\nFlavor: Mild, floral, and slightly earthy.\nAroma: Fresh and delicately floral.\nIngredients: Butterfly Pea Flower, Spearmint, Ginger, Dandelion, Cinnamon & Lemongrass.\nColor: Brilliant blue tea that naturally turns purple with lemon juice.",
-      "description": "Blue Tea (Loose), also known as Butterfly Pea Flower Tea, is a naturally caffeine-free herbal infusion made from premium dried butterfly pea flowers. Famous for its vibrant deep blue colour and delicate floral taste, this refreshing tea is enjoyed both hot and iced. Rich in natural antioxidants, it is a perfect wellness drink for daily consumption.\n\nKey Characteristics:\n\nFlavor: Mild, earthy, and slightly floral with a smooth finish.\nAroma: Light, fresh, and naturally floral.\nIngredients: Butterfly Pea Flower, Spearmint, Ginger, Dandelion, Cinnamon & Lemongrass.\n\nColor: Deep blue infusion that changes to purple when lemon is added.\n\nCulinary Uses:\n\nHerbal Tea: Brew as a relaxing hot or iced herbal beverage.\nDetox Drinks: Enjoy as part of a healthy lifestyle and wellness routine.\nMocktails & Cocktails: Creates stunning natural blue and purple beverages.\nSmoothies: Blend into smoothies for natural colour and antioxidants.\nDesserts: Used in cakes, puddings, rice dishes, jellies, and syrups for vibrant natural colouring.\n\nHealth Benefits:\n\nRich in Antioxidants: Helps protect the body from oxidative stress.\nNaturally Caffeine-Free: A perfect tea for any time of the day.\nSupports Wellness: Traditionally enjoyed for promoting overall health and vitality.\nMay Support Weight Management: Commonly included in balanced diet and fitness routines.\nHydrating & Refreshing: A light herbal drink suitable for everyday enjoyment.\n\nStorage:\n\nStore in an airtight container in a cool, dry place away from direct sunlight.\nKeep away from moisture to preserve freshness and natural colour.\nSeal the pouch tightly after every use for the best flavour and aroma.",
+      "shortDescription": "Dishu Masala Premium Herbal Blue Tea (loose leaf) is a caffeine-free herbal infusion of pure dried butterfly-pea flowers. Watch it brew a vibrant natural blue that shifts to purple with lemon. Clean-label and preservative-free, this antioxidant-rich loose tea is perfect for mindful brewing, iced blue teas and everyday wellness. Available in 52 gm and 105 gm packs.",
+      "description": "Blue Tea (Loose), also known as Butterfly Pea Flower Tea, is a naturally caffeine-free herbal infusion made from premium dried butterfly pea flowers. Famous for its vibrant deep blue colour and delicate floral taste, this refreshing tea is enjoyed both hot and iced. Rich in natural antioxidants, it is a perfect wellness drink for daily consumption.\n\nKey Characteristics:\n\nFlavor: Mild, earthy, and slightly floral with a smooth finish.\nAroma: Light, fresh, and naturally floral.\nIngredients: Butterfly Pea Flower, Spearmint, Ginger, Dandelion, Cinnamon & Lemongrass.\n\nColor: Deep blue infusion that changes to purple when lemon is added.\n\nCulinary Uses:\n\nHerbal Tea: Brew as a relaxing hot or iced herbal beverage.\nDetox Drinks: Enjoy as part of a healthy lifestyle and wellness routine.\nMocktails & Cocktails: Creates stunning natural blue and purple beverages.\nSmoothies: Blend into smoothies for natural colour and antioxidants.\nDesserts: Used in cakes, puddings, rice dishes, jellies, and syrups for vibrant natural colouring.\n\nHealth Benefits:\n\nDishu Masala Blue Tea is a potent blend of Butterfly Pea, Lemongrass, Ginger, and Spearmint that boosts metabolism, burns fat, reduces bloating, and aids digestion for a healthier, slimmer you!\nPromotes weight loss\nReduces cravings & Boosts metabolism\nImproves digestive health\nFlushes out toxins\nCaffeine-free & keto-friendly\nKickstart your fat loss journey by sipping on Dishu Masala Blue Tea 3 times a day, and pair it with a balanced diet for best results!\n\nStorage:\n\nStore in an airtight container in a cool, dry place away from direct sunlight.\nKeep away from moisture to preserve freshness and natural colour.\nSeal the pouch tightly after every use for the best flavour and aroma.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image7-1.jpg",
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image7-2.jpg",
@@ -94,6 +116,31 @@
           "mrp": 299.0,
           "price": 269.0,
           "discountPct": 10,
+          "inStock": true
+        },
+        {
+          "sku": "0023-20-gm",
+          "option": "20 gm",
+          "mrp": 115.0,
+          "price": 103.46,
+          "discountPct": 10,
+          "inStock": true,
+          "_note": "PLACEHOLDER pricing, proportionally derived from the existing larger pack — pending real client-confirmed price (2026-09-17 decision)."
+        },
+        {
+          "sku": "0023-52-gm-2PK",
+          "option": "52 gm x2",
+          "mrp": 598.0,
+          "price": 484.0,
+          "discountPct": 19,
+          "inStock": true
+        },
+        {
+          "sku": "0023-52-gm-4PK",
+          "option": "52 gm x4",
+          "mrp": 1196.0,
+          "price": 861.0,
+          "discountPct": 28,
           "inStock": true
         },
         {
@@ -114,13 +161,13 @@
       "name": "Premium Herbal Red Tea (teabags)",
       "category": "Teas",
       "collection": "red-tea",
-      "priorityRank": 2,
+      "priorityRank": 3,
       "tags": [
         "red-tea-teabags",
         "tea"
       ],
       "optionLabel": "Teabags",
-      "shortDescription": "Red Tea is a premium herbal tea blend made with Hibiscus and Rose Flowers, offering a naturally refreshing taste, floral aroma, and vibrant red colour. It is a delightful caffeine-free beverage that combines wellness with exceptional flavour.\n\nKey Characteristics:\n\nFlavor: Mildly tart, floral, and naturally refreshing.\nAroma: Pleasant rose fragrance with subtle fruity notes.\nIngredients: Hibiscus, Rose Patels, Holy Besils, Ginger Extracts.\nColor: Deep ruby red.",
+      "shortDescription": "Unwind with Dishu Masala Premium Herbal Red Tea teabags — a naturally caffeine-free herbal infusion with a warm, earthy flavour. Made from carefully selected herbs with no preservatives and no artificial colour, each teabag delivers a soothing, ruby-red cup. A clean-label wellness tea and a healthy alternative to regular chai for relaxing evenings.",
       "description": "Red Tea, also known as Herbal Red Tea, is a refreshing caffeine-free herbal infusion crafted with Hibiscus and Rose Flowers. It is known for its vibrant ruby-red color, floral aroma, and pleasantly tangy taste, making it a soothing beverage that can be enjoyed any time of the day.\n\nKey Characteristics:\n\nFlavor: Refreshing, mildly tangy, and naturally floral with a smooth finish.\nAroma: Delicate rose fragrance blended with the fresh, fruity notes of hibiscus.\nIngredients: Hibiscus, Rose Patels, Holy Besils, Ginger Extracts.\nColor: Bright ruby red with a rich, vibrant appearance.\n\nCulinary Uses:\n\nHot Tea: Enjoy as a warm, soothing beverage.\nIced Tea: Serve chilled for a refreshing summer drink.\nWellness Drink: Perfect for daily relaxation and hydration.\nMocktails & Coolers: A natural base for refreshing herbal beverages.\nDesserts: Can be infused into syrups, jellies, and herbal desserts.\n\nHealth Benefits:\n\nRich in Antioxidants: Helps protect the body from oxidative stress.\nSupports Skin Health: Hibiscus and rose are traditionally known to promote healthy, glowing skin.\nNaturally Caffeine-Free: Suitable for any time of the day without caffeine.\nSupports Hydration: A refreshing herbal drink that helps keep you hydrated.\nPromotes Relaxation: The floral aroma provides a calming and soothing experience.\n\nStorage:\n\nStore in an airtight container or reseal the pouch after every use.\nKeep in a cool, dry place away from direct sunlight and moisture.\nFor the best flavour and freshness, consume within the recommended period after opening.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image9-1.jpg",
@@ -135,6 +182,22 @@
           "price": 314.0,
           "discountPct": 10,
           "inStock": true
+        },
+        {
+          "sku": "0033-36-2PK",
+          "option": "36 x2",
+          "mrp": 698.0,
+          "price": 565.0,
+          "discountPct": 19,
+          "inStock": true
+        },
+        {
+          "sku": "0033-36-4PK",
+          "option": "36 x4",
+          "mrp": 1396.0,
+          "price": 1005.0,
+          "discountPct": 28,
+          "inStock": true
         }
       ],
       "priceFrom": 314.0
@@ -146,13 +209,13 @@
       "name": "Premium Herbal Red Tea (loose)",
       "category": "Teas",
       "collection": "red-tea",
-      "priorityRank": 2,
+      "priorityRank": 3,
       "tags": [
         "red-tea-loose",
         "tea"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Red Tea (Loose) is a premium herbal blend made with carefully selected Hibiscus and Rose Flowers. This loose leaf infusion delivers a rich ruby-red colour, refreshing floral aroma, and naturally tangy flavour, making it a perfect choice for a healthy and relaxing tea experience.\n\nKey Characteristics:\n\nFlavor: Mildly tart, floral, and naturally refreshing.\nAroma: Delicate rose fragrance with subtle fruity hibiscus notes.\nIngredients: Hibiscus, Rose Patels, Holy Besils, Ginger Extracts.\nColor: Bright ruby red.\nBrewing: Easy to brew for a fresh, aromatic cup of herbal tea.",
+      "shortDescription": "Dishu Masala Premium Herbal Red Tea (loose leaf) is a caffeine-free herbal blend that brews into a rich, ruby-red cup with a smooth, earthy taste. Free from preservatives and artificial colour, this clean-label wellness tea is ideal for slow, mindful brewing. Available in 52 gm and 105 gm packs — a comforting, healthy alternative to everyday tea.",
       "description": "Red Tea (Loose) is a premium herbal loose leaf tea blend crafted with Hibiscus and Rose Flowers. Known for its vibrant ruby-red infusion, refreshing floral aroma, and naturally tangy taste, this caffeine-free tea offers a soothing and revitalizing experience in every cup.\n\nKey Characteristics:\n\nFlavor: Refreshing, mildly tangy, and naturally floral with a smooth finish.\nAroma: Pleasant floral fragrance with delicate notes of rose and hibiscus.\nIngredients: Hibiscus, Rose Patels, Holy Besils, Ginger Extracts.\nColor: Deep ruby red with a bright, vibrant appearance.\n\nCulinary Uses:\n\nHot Herbal Tea: Brew fresh for a soothing and comforting cup.\nIced Tea: Enjoy chilled for a refreshing summer beverage.\nWellness Drink: Ideal for daily relaxation and hydration.\nMocktails & Infusions: A perfect base for herbal coolers and fruit infusions.\nNatural Beverage: Can be enjoyed plain or with honey, lemon, or other natural sweeteners.\n\nHealth Benefits:\n\nRich in Antioxidants: Helps protect the body from oxidative stress.\nSupports Healthy Skin: Hibiscus and rose are traditionally valued for promoting radiant skin.\nNaturally Caffeine-Free: Enjoy any time of the day without caffeine.\nSupports Hydration: A light and refreshing herbal drink.\nPromotes Relaxation: The floral aroma creates a calming tea experience.\n\nStorage:\n\nStore the loose tea in an airtight container or reseal the pouch after every use.\nKeep in a cool, dry place away from direct sunlight and moisture.\nFor maximum freshness and flavour, use a dry spoon and keep the pouch tightly sealed.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image8-1.jpg",
@@ -166,6 +229,31 @@
           "mrp": 259.0,
           "price": 233.0,
           "discountPct": 10,
+          "inStock": true
+        },
+        {
+          "sku": "0032-20-gm",
+          "option": "20 gm",
+          "mrp": 99.62,
+          "price": 89.62,
+          "discountPct": 10,
+          "inStock": true,
+          "_note": "PLACEHOLDER pricing, proportionally derived from the existing larger pack — pending real client-confirmed price (2026-09-17 decision)."
+        },
+        {
+          "sku": "0032-52-gm-2PK",
+          "option": "52 gm x2",
+          "mrp": 518.0,
+          "price": 419.0,
+          "discountPct": 19,
+          "inStock": true
+        },
+        {
+          "sku": "0032-52-gm-4PK",
+          "option": "52 gm x4",
+          "mrp": 1036.0,
+          "price": 746.0,
+          "discountPct": 28,
           "inStock": true
         },
         {
@@ -183,16 +271,16 @@
       "wooId": 9082,
       "sku": "0034",
       "slug": "premium-aasam-tea-500gm",
-      "name": "Premium Aasam Tea 500gm",
+      "name": "Premium Assam Tea 500gm",
       "category": "Teas",
       "collection": "classic-teas",
-      "priorityRank": 3,
+      "priorityRank": 5,
       "tags": [
         "premium-aasam-tea",
         "tea"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Premium Chai is made from carefully selected Assam tea leaves, offering a bold flavour, rich aroma, and vibrant colour in every cup. This premium loose leaf tea is ideal for brewing authentic Indian chai or enjoying as a refreshing black tea.\n\nKey Characteristics:\n\nFlavor: Strong, smooth, and naturally malty.\nAroma: Fresh, rich, and invigorating.\nTexture: Premium loose leaf tea.\nColor: Bright amber with a rich reddish hue.\nOrigin: Sourced directly from the renowned tea gardens of Assam.",
+      "shortDescription": "Dishu Masala Premium Assam Tea (500 gm) delivers the bold, malty strength Assam is famous for. Made from high-grade CTC leaves, it brews a rich, full-bodied cup with deep colour and a refreshing aroma — perfect for a strong morning chai. A value 500 gm pack for households that love their tea rich and revitalising.",
       "description": "Premium Chai is a carefully selected blend of high-quality Assam tea leaves, sourced directly from the lush tea gardens of Assam. Renowned for its rich flavour, vibrant colour, and refreshing aroma, this premium loose tea delivers a full-bodied cup that's perfect for starting your day or enjoying a relaxing tea break.\n\nKey Characteristics:\n\nFlavor: Rich, bold, and full-bodied with a smooth finish.\nAroma: Fresh, malty, and naturally invigorating.\nIngredients: Tea, Ginger, Tulsi, Mulethi, Cardamom.\nColor: Bright amber to deep reddish-brown infusion.\n\nCulinary Uses:\n\nClassic Milk Tea: Perfect for preparing traditional Indian chai.\nBlack Tea: Enjoy without milk for a bold, refreshing taste.\nMasala Chai: Pairs well with spices like cardamom, ginger, cinnamon, and cloves.\nIced Tea: Brew and chill for a refreshing cold beverage.\nEveryday Tea: Ideal for morning, afternoon, or evening tea breaks.\n\nHealth Benefits:\n\nRich in Antioxidants: Helps protect the body from oxidative stress.\nNatural Energy Boost: Contains natural caffeine to enhance alertness and focus.\nSupports Heart Health: Tea polyphenols may contribute to overall cardiovascular wellness.\nRefreshing & Revitalising: Helps reduce fatigue and refresh the mind.\nPromotes Overall Well-being: A comforting beverage to complement a balanced lifestyle.\n\nStorage:\n\nStore the loose tea in an airtight container or reseal the pouch after every use.\nKeep in a cool, dry place away from direct sunlight, moisture, and strong odours.\nUse a dry spoon to maintain freshness and preserve the tea's natural aroma.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image10-1.jpg",
@@ -207,6 +295,22 @@
           "price": 200.0,
           "discountPct": 28,
           "inStock": true
+        },
+        {
+          "sku": "0034-500-gm-2PK",
+          "option": "500 gm x2",
+          "mrp": 558.0,
+          "price": 360.0,
+          "discountPct": 35,
+          "inStock": true
+        },
+        {
+          "sku": "0034-500-gm-4PK",
+          "option": "500 gm x4",
+          "mrp": 1116.0,
+          "price": 640.0,
+          "discountPct": 43,
+          "inStock": true
         }
       ],
       "priceFrom": 200.0
@@ -218,13 +322,13 @@
       "name": "Classic Tea 500gm",
       "category": "Teas",
       "collection": "classic-teas",
-      "priorityRank": 3,
+      "priorityRank": 5,
       "tags": [
         "classic-tea",
         "tea"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Classic Tea is a carefully crafted tea blend made from premium-quality tea leaves, offering a bold taste, rich colour, and delightful aroma. Whether served plain, with milk, or blended with traditional spices, it delivers an authentic chai experience in every sip.\n\nKey Characteristics:\n\nFlavor: Bold, smooth, and pleasantly malty.\nAroma: Rich, fresh, and naturally aromatic.\nTexture: Fine premium tea granules.\nColor: Rich amber with a deep reddish-brown infusion.",
+      "shortDescription": "Dishu Masala Classic Tea (500 gm) is your perfect everyday chai — a balanced blend with smooth flavour, bright colour and an inviting aroma. Ideal for masala chai, milk tea or a quick cup any time of day. This economical 500 gm pack keeps your kitchen stocked with dependable, great-tasting daily tea.",
       "description": "Classic Tea is a premium blend of carefully selected tea leaves, crafted to deliver the authentic taste of traditional Indian tea. With its rich aroma, bold flavour, and refreshing character, it is the perfect choice to start your day or enjoy a relaxing tea break anytime.\n\nKey Characteristics:\n\nFlavor: Strong, rich, and full-bodied with a smooth finish.\nAroma: Fresh, robust, and naturally refreshing.\nIngredients: Natural Tea.\nColor: Bright amber to deep reddish-brown liquor.\n\nCulinary Uses:\n\nDaily Milk Tea: Ideal for preparing traditional Indian chai with milk and sugar.\nMasala Chai: Perfect with ginger, cardamom, cloves, cinnamon, and other spices.\nLemon Tea: Can be enjoyed with lemon and honey for a refreshing beverage.\nIced Tea: Brew, chill, and serve over ice for a cool, revitalising drink.\nTea Desserts: Suitable for adding tea flavour to cakes, cookies, puddings, and ice cream.\n\nHealth Benefits:\n\nRich in Natural Antioxidants: Helps protect cells from oxidative stress.\nNatural Energy Boost: Contains caffeine that helps improve alertness and focus.\nSupports Digestion: Traditionally enjoyed after meals to promote digestive comfort.\nRefreshing & Comforting: A soothing beverage that revitalises the mind and body.\n\nStorage:\n\nStore in an airtight container in a cool, dry place away from moisture and direct sunlight.\nAlways reseal the pouch after use to preserve freshness and aroma.\nFor the best flavour, use within the recommended period after opening.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image12-1.jpg",
@@ -239,6 +343,22 @@
           "price": 190.0,
           "discountPct": 21,
           "inStock": true
+        },
+        {
+          "sku": "0031-500-gm-2PK",
+          "option": "500 gm x2",
+          "mrp": 478.0,
+          "price": 342.0,
+          "discountPct": 28,
+          "inStock": true
+        },
+        {
+          "sku": "0031-500-gm-4PK",
+          "option": "500 gm x4",
+          "mrp": 956.0,
+          "price": 608.0,
+          "discountPct": 36,
+          "inStock": true
         }
       ],
       "priceFrom": 190.0
@@ -247,16 +367,16 @@
       "wooId": 9092,
       "sku": "0035",
       "slug": "premium-aasam-tea-250gm",
-      "name": "Premium Aasam Tea 250gm",
+      "name": "Premium Assam Tea 250gm",
       "category": "Teas",
       "collection": "classic-teas",
-      "priorityRank": 3,
+      "priorityRank": 5,
       "tags": [
         "premium-aasam-tea",
         "tea"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Premium Tea is made from carefully selected Assam loose tea leaves, offering a bold flavour, refreshing aroma, and rich colour. Expertly processed to preserve freshness, this premium tea creates a smooth, satisfying cup that's perfect for everyday enjoyment.\n\nKey Characteristics:\n\nFlavor: Bold, smooth, and naturally malty.\nAroma: Rich, fresh, and uplifting.\nTexture: Premium loose leaf tea.\nColor: Deep amber with a bright reddish hue.\nOrigin: Carefully sourced from the famous tea gardens of Assam.",
+      "shortDescription": "Dishu Masala Premium Assam Tea (250 gm) brings bold, malty richness to your cup. Crafted from quality CTC Assam leaves, it brews strong, full-bodied and aromatic — the ideal base for a hearty morning chai. A convenient 250 gm pack of premium Assam tea for a truly refreshing start to the day.",
       "description": "Premium Tea is a carefully crafted blend of high-quality Assam loose tea leaves, selected to deliver a rich taste, refreshing aroma, and vibrant colour in every cup. Sourced from the renowned tea gardens of Assam, this premium tea is ideal for preparing authentic Indian chai or enjoying as a classic black tea.\n\nKey Characteristics:\n\nFlavor: Strong, rich, and malty with a smooth finish.\nAroma: Fresh, bold, and naturally invigorating.\nIngredients: Tea, Ginger, Tulsi, Mulethi, Cardamom.\nColor: Bright golden amber to deep reddish-brown liquor.\n\nCulinary Uses:\n\nTraditional Indian Chai: Perfect for brewing with milk and sugar.\nBlack Tea: Enjoy plain for a bold and refreshing taste.\nMasala Tea: Blends beautifully with ginger, cardamom, cinnamon, cloves, and other spices.\nIced Tea: Makes a refreshing chilled beverage.\nDaily Refreshment: An excellent choice for morning and evening tea breaks.\n\nHealth Benefits:\n\nRich in Natural Antioxidants: Helps protect cells from oxidative stress.\nBoosts Energy & Alertness: Natural caffeine helps improve focus and refresh the mind.\nSupports Heart Wellness: Tea polyphenols may contribute to overall cardiovascular health.\nAids Digestion: A warm cup of tea can complement healthy digestion after meals.\nPromotes Overall Well-being: A comforting beverage to enjoy as part of a balanced lifestyle.\n\nStorage:\n\nStore in an airtight container or reseal the pouch after each use.\nKeep in a cool, dry place away from moisture, sunlight, and strong odours.\nAlways use a dry spoon to preserve freshness and aroma.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image13-1.jpg",
@@ -271,6 +391,31 @@
           "price": 100.0,
           "discountPct": 29,
           "inStock": true
+        },
+        {
+          "sku": "0035-100-gm",
+          "option": "100 gm",
+          "mrp": 56.0,
+          "price": 40.0,
+          "discountPct": 29,
+          "inStock": true,
+          "_note": "PLACEHOLDER pricing, proportionally derived from the existing larger pack — pending real client-confirmed price (2026-09-17 decision)."
+        },
+        {
+          "sku": "0035-250-gm-2PK",
+          "option": "250 gm x2",
+          "mrp": 280.0,
+          "price": 180.0,
+          "discountPct": 36,
+          "inStock": true
+        },
+        {
+          "sku": "0035-250-gm-4PK",
+          "option": "250 gm x4",
+          "mrp": 560.0,
+          "price": 320.0,
+          "discountPct": 43,
+          "inStock": true
         }
       ],
       "priceFrom": 100.0
@@ -282,13 +427,13 @@
       "name": "Classic Tea 250gm",
       "category": "Teas",
       "collection": "classic-teas",
-      "priorityRank": 3,
+      "priorityRank": 5,
       "tags": [
         "classic-tea",
         "tea"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Classic Tea is a premium tea blend made from carefully selected tea leaves, delivering a rich aroma, bold flavour, and authentic taste in every cup. Whether enjoyed plain or with milk and spices, it is the perfect choice for a refreshing daily tea experience.\n\nKey Characteristics:\n\nFlavor: Bold, smooth, and naturally rich.\nAroma: Strong, fresh, and malty.\nTexture: Premium fine tea granules.\nColor: Rich amber-brown brew.",
+      "shortDescription": "Dishu Masala Classic Tea (250 gm) is a smooth, well-balanced everyday blend that brews a bright, aromatic cup. Perfect for masala chai and daily milk tea, it delivers consistent flavour and colour every time. A handy 250 gm pack of reliable, great-tasting classic tea for your daily brew.",
       "description": "Classic Tea is a traditional tea blend crafted from premium tea leaves, offering a rich aroma, bold flavour, and refreshing taste. A favourite in every household, it delivers the authentic taste of Indian chai, making every cup comforting and energising.\n\nKey Characteristics:\n\nFlavor: Rich, bold, and full-bodied with a smooth finish.\nAroma: Fresh, strong, and pleasantly malty.\nIngredients: Natural Tea.\nColor: Deep amber to rich brown infusion.\n\nCulinary Uses:\n\nEveryday Tea: Perfect for preparing traditional milk tea.\nMasala Chai: Pairs well with ginger, cardamom, cloves, cinnamon, and other spices.\nIced Tea: Can be brewed and chilled for a refreshing cold beverage.\nTea Lattes: Ideal for creamy café-style tea drinks.\nTea-Based Desserts: Can be used to flavour cakes, puddings, and ice creams.\n\nHealth Benefits:\n\nNatural Antioxidants: Tea contains antioxidants that help protect the body from free radicals.\nRefreshing & Energising: Naturally contains caffeine to help improve alertness and reduce fatigue.\nSupports Digestion: Traditionally enjoyed after meals to aid digestion.\nPromotes Well-being: A comforting beverage that helps refresh the mind and body.\n\nStorage:\n\nStore in an airtight container in a cool, dry place away from direct sunlight.\nKeep the pack tightly sealed after every use to preserve freshness and aroma.\nFor the best taste, consume within the recommended period after opening.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2026/07/product-image11-1.jpg",
@@ -302,6 +447,31 @@
           "mrp": 120.0,
           "price": 95.0,
           "discountPct": 21,
+          "inStock": true
+        },
+        {
+          "sku": "0030-100-gm",
+          "option": "100 gm",
+          "mrp": 48.0,
+          "price": 38.0,
+          "discountPct": 21,
+          "inStock": true,
+          "_note": "PLACEHOLDER pricing, proportionally derived from the existing larger pack — pending real client-confirmed price (2026-09-17 decision)."
+        },
+        {
+          "sku": "0030-250-gm-2PK",
+          "option": "250 gm x2",
+          "mrp": 240.0,
+          "price": 171.0,
+          "discountPct": 29,
+          "inStock": true
+        },
+        {
+          "sku": "0030-250-gm-4PK",
+          "option": "250 gm x4",
+          "mrp": 480.0,
+          "price": 304.0,
+          "discountPct": 37,
           "inStock": true
         }
       ],
@@ -320,7 +490,7 @@
         "spices"
       ],
       "optionLabel": "Combo",
-      "shortDescription": "Introducing Dishu masala's CTC combo pack of Black Pepper, Garam Masala and Coriander Powder—the three most popular and important spices used in Indian cooking. The herbs and spice blends in Dishu masala's Royal Taste go on a very special journey all on their own.",
+      "shortDescription": "Dishu Masala Black Pepper + Garam Masala + Coriander combo (100 gm x 3) brings three kitchen essentials together in one value pack. Freshly ground and clean-label with no preservatives, these pure spices add bold aroma, warmth and depth to everyday cooking at home.",
       "description": "Black Pepper — Bold and pungent, freshly ground to elevate flavor and add a natural kick of heat.\nGaram Masala — A rich blend of premium spices, adding depth, warmth, and authentic Indian flavor to your dishes.\nCoriander Powder — Fresh and earthy, enhances curries, dals, and vegetables with a subtle, refreshing taste.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/combo-product-6.jpg",
@@ -353,7 +523,7 @@
         "spices"
       ],
       "optionLabel": "Combo",
-      "shortDescription": "Introducing Dishu masala's CTC combo pack of Garam Masala and Black Pepper—the two most popular and important spices used in Indian cooking. The herbs and spice blends in Dishu masala's Royal Taste go on a very special journey all on their own.",
+      "shortDescription": "Dishu Masala Garam Masala + Black Pepper combo (100 gm x 2) pairs two must-have spices for rich, aromatic cooking. Freshly ground and preservative-free, this clean-label duo brings warmth, depth and a peppery kick to curries, gravies and everyday dishes. Great value pack for flavour-loving home kitchens.",
       "description": "Garam Masala — A rich blend of premium spices, adding depth, warmth, and authentic Indian flavor to your dishes.\nBlack Pepper — Bold and pungent, freshly ground to elevate flavor and add a natural kick of heat.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/combo-product-1.jpg",
@@ -385,7 +555,7 @@
         "spices"
       ],
       "optionLabel": "Combo",
-      "shortDescription": "Introducing Dishu masala's CTC combo pack of Black Pepper and Coriander Powder—the two most popular and important spices used in Indian cooking. The herbs and spice blends in Dishu masala's Royal Taste go on a very special journey all on their own.",
+      "shortDescription": "Dishu Masala Black Pepper + Coriander combo (100 gm x 2) combines two everyday essentials in one value pack. Pure, freshly ground and free from preservatives, these clean-label spices add earthy aroma and a gentle heat to your cooking — a handy duo for seasoning curries, snacks and daily meals.",
       "description": "Black Pepper — Bold and pungent, freshly ground to elevate flavor and add a natural kick of heat.\nCoriander Powder — Fresh and earthy, enhances curries, dals, and vegetables with a subtle, refreshing taste.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/combo-product-5.jpg",
@@ -417,7 +587,7 @@
         "spices"
       ],
       "optionLabel": "Combo",
-      "shortDescription": "Introducing Dishu masala's CTC combo pack of Turmeric, Red Chilli and Coriander Powder—the three most popular and important spices used in Indian cooking. The herbs and spice blends in Dishu masala's Royal Taste go on a very special journey all on their own.",
+      "shortDescription": "Dishu Masala Turmeric + Red Chilli + Coriander combo brings the three core Indian cooking spices together in one clean-label pack. Freshly ground, pure and preservative-free, they deliver vibrant colour, balanced heat and earthy aroma to everyday dishes. Available in 100 gm x 3 and 200 gm x 3 — an essential trio for every kitchen.",
       "description": "Turmeric Powder — Pure and vibrant, packed with natural curcumin for color, flavor, and health benefits.\nRed Chilli Powder — Bold and fiery, adds perfect heat and aroma to your favorite recipes.\nCoriander Powder — Freshly ground, offering earthy notes and a refreshing taste to enhance curries and dals.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/combo-product-7.jpg",
@@ -458,7 +628,7 @@
         "spices"
       ],
       "optionLabel": "Combo",
-      "shortDescription": "Introducing Dishu masala's CTC combo pack of Turmeric, Red Chilli Powder—the two most popular and important spices used in Indian cooking. The herbs and spice blends in Dishu masala's Royal Taste go on a very special journey all on their own.",
+      "shortDescription": "Dishu Masala Turmeric + Red Chilli combo pairs two everyday must-haves for colour and heat. Pure, freshly ground and free from preservatives, this clean-label duo brings golden warmth and balanced spice to your cooking. Available in 100 gm x 2 and 200 gm x 2 value packs for daily Indian meals.",
       "description": "Turmeric Powder — Pure and vibrant, packed with natural curcumin for color, flavor, and health benefits.\nRed Chilli Powder — Bold and fiery, adds perfect heat and aroma to your favorite recipes.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/combo-product-3.jpg",
@@ -498,7 +668,7 @@
         "spices"
       ],
       "optionLabel": "Combo",
-      "shortDescription": "Introducing Dishu masala's CTC combo pack of Red Chilli and Coriander Powder—the two most popular and important spices used in Indian cooking. The herbs and spice blends in Dishu masala's Royal Taste go on a very special journey all on their own.",
+      "shortDescription": "Dishu Masala Red Chilli + Coriander combo brings heat and earthy aroma together in one clean-label value pack. Freshly ground and preservative-free, these pure spices are everyday essentials for curries, sabzis and marinades. Available in 100 gm x 2 and 200 gm x 2 — a practical duo for flavour-rich home cooking.",
       "description": "Red Chilli Powder — Bold and fiery, adds perfect heat and aroma to your favorite recipes.\nCoriander Powder — Freshly ground, offering earthy notes and a refreshing taste to enhance curries and dals.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/combo-product-2.jpg",
@@ -538,7 +708,7 @@
         "spices"
       ],
       "optionLabel": "Combo",
-      "shortDescription": "Introducing Dishu masala's CTC combo pack of Turmeric and Coriander Powder—the two most popular and important spices used in Indian cooking. The herbs and spice blends in Dishu masala's Royal Taste go on a very special journey all on their own.",
+      "shortDescription": "Dishu Masala Turmeric + Coriander combo pairs two staple spices for colour and depth. Pure, freshly ground and free from preservatives, this clean-label duo adds golden warmth and a mild, earthy aroma to daily dishes. Available in 100 gm x 2 and 200 gm x 2 value packs for your everyday kitchen.",
       "description": "Turmeric Powder — Pure and vibrant, packed with natural curcumin for color, flavor, and health benefits.\nCoriander Powder — Freshly ground, offering earthy notes and a refreshing taste to enhance curries and dals.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/combo-product-4.jpg",
@@ -572,14 +742,14 @@
       "name": "Black Pepper Powder",
       "category": "Spices",
       "collection": "spices",
-      "priorityRank": 5,
+      "priorityRank": 2,
       "tags": [
         "black pepper",
         "powder",
         "spices"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Black pepper, often called the “King of Spices,” is one of the most widely used spices in the world. Known for its sharp, pungent flavor and aroma, it adds heat and depth to both savory and sweet dishes.\n\nKey Characteristics:\n\nFlavor: Sharp, hot, and mildly woody with a lingering heat.\nAroma: Strong, warm, and slightly earthy.\nTexture: Whole peppercorns or finely ground powder.\nColor: Black to dark brown.",
+      "shortDescription": "Dishu Masala Black Pepper Powder (Kali Mirch, 100 gm) is pure, freshly ground pepper with a bold, pungent aroma. Clean-label and free from preservatives or fillers, it adds sharp warmth and depth to curries, soups, marinades and everyday seasoning. Pure black pepper powder for authentic flavour in every dish.",
       "description": "Black pepper, often called the “King of Spices,” is one of the most widely used spices in the world. Known for its sharp, pungent flavor and aroma, it adds heat and depth to both savory and sweet dishes.\n\nKey Characteristics:\n\nFlavor: Sharp, hot, and mildly woody with a lingering heat.\nAroma: Strong, warm, and slightly earthy.\nTexture: Whole peppercorns or finely ground powder.\nColor: Black to dark brown.\n\nCulinary Uses:\n\nSeasoning: A staple spice for enhancing the flavor of almost any dish.\nSoups & Stews: Adds warmth and depth to broths and gravies.\nMarinades & Rubs: Commonly used in meat, poultry, and seafood preparations.\nPickles: Used in traditional pickling recipes for added spice.\nBaked Goods & Snacks: Adds a subtle kick to biscuits, crackers, and spiced snacks.\n\nHealth Benefits:\n\nRich in Piperine: Enhances nutrient absorption and supports digestion.\nAntioxidant Properties: Protects the body from free radical damage.\nAnti-inflammatory Effects: May help reduce inflammation and support joint health.\nBoosts Metabolism: Linked to improved metabolism and weight management.\n\nStorage:\n\nStore whole peppercorns in an airtight container in a cool, dry place.\nWhole peppercorns retain flavor longer than ground pepper.\nFor best taste, grind peppercorns fresh before use.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/product-image5-1.jpg",
@@ -596,6 +766,22 @@
           "price": 165.0,
           "discountPct": 10,
           "inStock": true
+        },
+        {
+          "sku": "0027-100-gm-2PK",
+          "option": "100 gm x2",
+          "mrp": 368.0,
+          "price": 297.0,
+          "discountPct": 19,
+          "inStock": true
+        },
+        {
+          "sku": "0027-100-gm-4PK",
+          "option": "100 gm x4",
+          "mrp": 736.0,
+          "price": 528.0,
+          "discountPct": 28,
+          "inStock": true
         }
       ],
       "priceFrom": 165.0
@@ -607,14 +793,14 @@
       "name": "Garam Masala Powder",
       "category": "Spices",
       "collection": "spices",
-      "priorityRank": 5,
+      "priorityRank": 2,
       "tags": [
         "garam masala",
         "powder",
         "spices"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Garam masala is a traditional Indian spice blend made from a mix of aromatic spices. Known for its warm, rich, and complex flavor, it enhances the taste of curries, stews, and a wide variety of dishes.\n\nKey Characteristics:\n\nFlavor: Warm, aromatic, and slightly sweet with hints of spice.\nAroma: Strong, earthy, and fragrant.\nTexture: Finely ground powder, though some variations use coarse blends.\nColor: Brown to dark brown depending on the spices used.",
+      "shortDescription": "Dishu Masala Garam Masala Powder is an aromatic blend of hand-picked whole spices, freshly ground for maximum flavour. Clean-label and preservative-free, this warm, fragrant masala lifts curries, gravies, dals and rice dishes with authentic Indian taste. Available in 100 gm and 200 gm packs — a kitchen essential for rich, home-style cooking.",
       "description": "Garam masala is a traditional Indian spice blend made from a mix of aromatic spices. Known for its warm, rich, and complex flavor, it enhances the taste of curries, stews, and a wide variety of dishes.\n\nKey Characteristics:\n\nFlavor: Warm, aromatic, and slightly sweet with hints of spice.\nAroma: Strong, earthy, and fragrant.\nTexture: Finely ground powder, though some variations use coarse blends.\nColor: Brown to dark brown depending on the spices used.\n\nCulinary Uses:\n\nCurries & Gravies: Enhances depth and aroma in Indian curries.\nSoups & Stews: Adds warmth and complexity to broths and stews.\nRice Dishes: Commonly sprinkled over biryanis and pulao.\nSnacks & Street Food: Brings bold flavor to chaats and fried snacks.\nMarinades: Mixed with yogurt or oil to prepare spiced marinades for meats and vegetables.\n\nHealth Benefits:\n\nDigestive Aid: Ingredients like cumin and cardamom support digestion.\nRich in Antioxidants: Helps fight free radicals and boost immunity.\nAnti-inflammatory Properties: Spices like cloves and cinnamon may help reduce inflammation.\nMetabolism Booster: Black pepper and cinnamon may support metabolism and weight management.\n\nStorage:\n\nStore garam masala in an airtight container in a cool, dry place.\nTo retain its aroma and freshness, avoid direct sunlight and moisture.\nBest used within 3–6 months for maximum flavor.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/product-image4-1.jpg",
@@ -630,6 +816,22 @@
           "mrp": 99.0,
           "price": 85.0,
           "discountPct": 14,
+          "inStock": true
+        },
+        {
+          "sku": "0025-100-gm-2PK",
+          "option": "100 gm x2",
+          "mrp": 198.0,
+          "price": 153.0,
+          "discountPct": 23,
+          "inStock": true
+        },
+        {
+          "sku": "0025-100-gm-4PK",
+          "option": "100 gm x4",
+          "mrp": 396.0,
+          "price": 272.0,
+          "discountPct": 31,
           "inStock": true
         },
         {
@@ -650,14 +852,14 @@
       "name": "Turmeric Powder (Haldi Powder)",
       "category": "Spices",
       "collection": "spices",
-      "priorityRank": 5,
+      "priorityRank": 2,
       "tags": [
         "powder",
         "spices",
         "turmeric"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Turmeric is a vibrant yellow spice derived from the root of the Curcuma longa plant. It has been used for centuries in Ayurvedic medicine and cooking, prized for its medicinal properties and distinct flavor.\n\nKey Characteristics:\n\nFlavor: Earthy, slightly bitter, and with a hint of pepper.\nAroma: Warm and slightly pungent.\nAppearance: Bright yellow powder or root.\nTexture: Smooth and slightly oily.",
+      "shortDescription": "Dishu Masala Turmeric Powder (Haldi, 100 gm) is 100% pure, freshly ground turmeric with a vibrant golden colour and earthy aroma. Clean-label and free from preservatives, added colour or fillers, it's perfect for everyday cooking, golden milk and wellness recipes. Available in 100 gm and 200 gm packs — pure haldi powder for colour, flavour and goodness.",
       "description": "Turmeric is a vibrant yellow spice derived from the root of the Curcuma longa plant. It has been used for centuries in Ayurvedic medicine and cooking, prized for its medicinal properties and distinct flavor.\n\nKey Characteristics:\n\nFlavor: Earthy, slightly bitter, and with a hint of pepper.\nAroma: Warm and slightly pungent.\nAppearance: Bright yellow powder or root.\nTexture: Smooth and slightly oily.\n\nCulinary Uses:\n\nCurries: Turmeric is a key ingredient in many Indian and Asian curries, imparting its signature color and flavor.\nMarinades: It adds a unique flavor to marinades for meats and vegetables.\nPickles: Turmeric is often used to preserve and color pickles.\nBaking: It can be used in baking to add a subtle flavor and a golden hue to baked goods.\nDrinks: Turmeric is a popular ingredient in golden milk, a soothing and flavorful drink.\n\nHealth Benefits:\n\nAnti-inflammatory properties: Turmeric contains curcumin, a compound with powerful anti-inflammatory properties.\nAntioxidant: It is rich in antioxidants that help protect cells from damage.\nDigestive aid: Turmeric can help improve digestion and reduce bloating.\nLiver health: Some studies suggest it may support liver health.\nBrain health: It may have potential benefits for brain health and cognitive function.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/product-image2-1.jpg",
@@ -673,6 +875,22 @@
           "mrp": 60.0,
           "price": 54.0,
           "discountPct": 10,
+          "inStock": true
+        },
+        {
+          "sku": "0021-100-gm-2PK",
+          "option": "100 gm x2",
+          "mrp": 120.0,
+          "price": 97.0,
+          "discountPct": 19,
+          "inStock": true
+        },
+        {
+          "sku": "0021-100-gm-4PK",
+          "option": "100 gm x4",
+          "mrp": 240.0,
+          "price": 173.0,
+          "discountPct": 28,
           "inStock": true
         },
         {
@@ -693,14 +911,14 @@
       "name": "Red Chilli Powder",
       "category": "Spices",
       "collection": "spices",
-      "priorityRank": 5,
+      "priorityRank": 2,
       "tags": [
         "powder",
         "red chilly",
         "spices"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Red chili peppers are a popular spice known for their intense heat and vibrant color. They are a staple in many cuisines around the world, adding a fiery kick to dishes.\n\nKey Characteristics:\n\nFlavor: Spicy, pungent, and slightly bitter.\nHeat: Varies depending on the specific variety, from mild to extremely hot.\nAppearance: Slender and elongated, often with a curved shape.\nColor: Red, but can range from green to orange depending on ripeness.",
+      "shortDescription": "Dishu Masala Red Chilli Powder (Lal Mirch, 100 gm) is pure, freshly ground chilli with a rich red colour and balanced heat. Clean-label and free from preservatives or artificial colour, it brings vibrant spice and warmth to curries, marinades and snacks. Available in 100 gm and 200 gm packs — pure red chilli powder for bold, everyday flavour.",
       "description": "Red chili peppers are a popular spice known for their intense heat and vibrant color. They are a staple in many cuisines around the world, adding a fiery kick to dishes.\n\nKey Characteristics:\n\nFlavor: Spicy, pungent, and slightly bitter.\nHeat: Varies depending on the specific variety, from mild to extremely hot.\nAppearance: Slender and elongated, often with a curved shape.\nColor: Red, but can range from green to orange depending on ripeness.\n\nCulinary Uses:\n\nSauces and pastes: Red chili peppers are a primary ingredient in hot sauces, chili paste, and salsa.\nCurries and stews: They add heat and flavor to curries, stews, and soups.\nMarinades and rubs: Used to marinate meats and create flavorful rubs.\nPickles: They add a spicy kick to pickled vegetables.\nToppings: Often used as a topping for tacos, pizza, and other dishes.\n\nHealth Benefits:\n\nCapsaicin: The compound responsible for heat in chili peppers has been linked to various health benefits, including pain relief and improved metabolism.\nAntioxidants: Red chili peppers contain antioxidants that help protect cells from damage.\n\nStorage:\n\nStore red chili peppers in a cool, dry place in an airtight container.\nTo preserve their heat and flavor, they can be dried or frozen.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/product-image1-1.jpg",
@@ -716,6 +934,22 @@
           "mrp": 60.0,
           "price": 54.0,
           "discountPct": 10,
+          "inStock": true
+        },
+        {
+          "sku": "0022-100-gm-2PK",
+          "option": "100 gm x2",
+          "mrp": 120.0,
+          "price": 97.0,
+          "discountPct": 19,
+          "inStock": true
+        },
+        {
+          "sku": "0022-100-gm-4PK",
+          "option": "100 gm x4",
+          "mrp": 240.0,
+          "price": 173.0,
+          "discountPct": 28,
           "inStock": true
         },
         {
@@ -736,14 +970,14 @@
       "name": "Coriander Powder",
       "category": "Spices",
       "collection": "spices",
-      "priorityRank": 5,
+      "priorityRank": 2,
       "tags": [
         "coriander",
         "powder",
         "spices"
       ],
       "optionLabel": "Size",
-      "shortDescription": "Coriander is a popular herb and spice used in countless cuisines worldwide. It offers a unique blend of sweet, citrusy, and slightly peppery flavors that enhance dishes in various ways.\n\nKey Characteristics:\n\nLeaves: Commonly known as cilantro, they have a fresh, herbaceous aroma and a bright, citrusy taste.\nSeeds: Also called coriander seeds, they are dried fruits with a warm, nutty, and slightly spicy flavor.\nAppearance: Leaves are green and feathery, while seeds are small, round, and brownish-yellow.",
+      "shortDescription": "Dishu Masala Coriander Powder (Dhania, 100 gm) is 100% pure, freshly ground coriander with a mild, citrusy-earthy aroma. Clean-label and preservative-free, this everyday essential adds body, flavour and a fragrant base to curries, sabzis and gravies. Available in 100 gm and 200 gm packs — pure dhania powder for authentic home cooking.",
       "description": "Coriander is a popular herb and spice used in countless cuisines worldwide. It offers a unique blend of sweet, citrusy, and slightly peppery flavors that enhance dishes in various ways.\n\nKey Characteristics:\n\nLeaves: Commonly known as cilantro, they have a fresh, herbaceous aroma and a bright, citrusy taste.\nSeeds: Also called coriander seeds, they are dried fruits with a warm, nutty, and slightly spicy flavor.\nAppearance: Leaves are green and feathery, while seeds are small, round, and brownish-yellow.\n\nCulinary Uses:\n\nFresh Leaves (Cilantro):\nUsed as a garnish for various dishes.\nAdded to salsas, guacamole, and chimichurri sauce.\nIncorporated into Mexican, Indian, and Thai cuisine.\nDried Seeds:\nGround into a powder for use in spice blends like garam masala.\nAdded to curries, stews, and marinades.\nUsed in pickling and preserving.\nOften paired with cumin, turmeric, and chili powder.\n\nHealth Benefits:\n\nAntioxidant Properties: Coriander is rich in antioxidants that help protect cells from damage.\nDigestive Aid: It can aid digestion and relieve symptoms like bloating and gas.\nAnti-inflammatory Effects: Some studies suggest coriander may have anti-inflammatory properties.\n\nStorage:\n\nFresh Leaves: Store in a refrigerator in a sealed container for up to a week.\nDried Seeds: Keep in a cool, dry place in an airtight container.",
       "images": [
         "https://dishumasala.com/wp-content/uploads/2025/09/product-image3-1.jpg",
@@ -762,6 +996,22 @@
           "inStock": true
         },
         {
+          "sku": "0026-100-gm-2PK",
+          "option": "100 gm x2",
+          "mrp": 110.0,
+          "price": 86.0,
+          "discountPct": 22,
+          "inStock": true
+        },
+        {
+          "sku": "0026-100-gm-4PK",
+          "option": "100 gm x4",
+          "mrp": 220.0,
+          "price": 154.0,
+          "discountPct": 30,
+          "inStock": true
+        },
+        {
           "sku": "0026-200-gm",
           "option": "200 gm",
           "mrp": 99.0,
@@ -771,6 +1021,142 @@
         }
       ],
       "priceFrom": 48.0
+    },
+    {
+      "wooId": 2000,
+      "sku": "0040",
+      "slug": "blue-tea-red-tea-loose-combo",
+      "name": "Blue Tea + Red Tea (loose)",
+      "category": "Tea-Combos",
+      "collection": "tea-combos",
+      "priorityRank": 6,
+      "tags": [
+        "tea combos",
+        "combo packs"
+      ],
+      "optionLabel": "Combo",
+      "shortDescription": "One pouch of Blue Tea and one of Red Tea, loose leaf — the colour-changing butterfly pea brew alongside the hibiscus-led ruby infusion. Both are naturally caffeine-free, so the pair covers any hour of the day.",
+      "description": "Blue Tea (loose) — Butterfly pea flower with spearmint, ginger, dandelion, cinnamon and lemongrass. Brews deep blue and turns violet with a squeeze of lemon.\nRed Tea (loose) — Hibiscus with rose petals, holy basil and ginger. Brews a tart, ruby-red cup.\nBoth are naturally caffeine-free herbal infusions.",
+      "images": [],
+      "variations": [
+        {
+          "sku": "0040-52-gm-x-2",
+          "option": "52 gm x 2",
+          "mrp": 558.0,
+          "price": 558.0,
+          "discountPct": 0,
+          "inStock": true
+        },
+        {
+          "sku": "0040-105-gm-x-2",
+          "option": "105 gm x 2",
+          "mrp": 1048.0,
+          "price": 1048.0,
+          "discountPct": 0,
+          "inStock": true
+        }
+      ],
+      "priceFrom": 558.0
+    },
+    {
+      "wooId": 2001,
+      "sku": "0041",
+      "slug": "blue-tea-red-tea-teabags-combo",
+      "name": "Blue Tea + Red Tea (teabags)",
+      "category": "Tea-Combos",
+      "collection": "tea-combos",
+      "priorityRank": 6,
+      "tags": [
+        "tea combos",
+        "combo packs"
+      ],
+      "optionLabel": "Combo",
+      "shortDescription": "Seventy-two pyramid teabags in one box — thirty-six Blue Tea and thirty-six Red Tea. The same two brews as the loose-leaf pair, in the format that travels.",
+      "description": "36 Blue Tea pyramid teabags — butterfly pea flower with spearmint, ginger, dandelion, cinnamon and lemongrass.\n36 Red Tea pyramid teabags — hibiscus with rose petals, holy basil and ginger.\nBoth are naturally caffeine-free herbal infusions.",
+      "images": [],
+      "variations": [
+        {
+          "sku": "0041-72-teabags",
+          "option": "72 teabags (36 + 36)",
+          "mrp": 698.0,
+          "price": 698.0,
+          "discountPct": 0,
+          "inStock": true
+        }
+      ],
+      "priceFrom": 698.0
+    },
+    {
+      "wooId": 2002,
+      "sku": "0042",
+      "slug": "blue-tea-twin-pack",
+      "name": "Blue Tea Twin Pack",
+      "category": "Tea-Combos",
+      "collection": "tea-combos",
+      "priorityRank": 6,
+      "tags": [
+        "tea combos",
+        "combo packs"
+      ],
+      "optionLabel": "Combo",
+      "shortDescription": "Two pouches of loose-leaf Blue Tea. For the household that has worked out the butterfly pea brew is the one it keeps running out of.",
+      "description": "Two pouches of Blue Tea (loose) — butterfly pea flower with spearmint, ginger, dandelion, cinnamon and lemongrass. Brews deep blue and shifts to violet, then magenta, as lemon is added. Naturally caffeine-free.",
+      "images": [],
+      "variations": [
+        {
+          "sku": "0042-52-gm-x-2",
+          "option": "52 gm x 2",
+          "mrp": 598.0,
+          "price": 598.0,
+          "discountPct": 0,
+          "inStock": true
+        },
+        {
+          "sku": "0042-105-gm-x-2",
+          "option": "105 gm x 2",
+          "mrp": 1098.0,
+          "price": 1098.0,
+          "discountPct": 0,
+          "inStock": true
+        }
+      ],
+      "priceFrom": 598.0
+    },
+    {
+      "wooId": 2003,
+      "sku": "0043",
+      "slug": "red-tea-twin-pack",
+      "name": "Red Tea Twin Pack",
+      "category": "Tea-Combos",
+      "collection": "tea-combos",
+      "priorityRank": 6,
+      "tags": [
+        "tea combos",
+        "combo packs"
+      ],
+      "optionLabel": "Combo",
+      "shortDescription": "Two pouches of loose-leaf Red Tea — the hibiscus-led ruby infusion, doubled.",
+      "description": "Two pouches of Red Tea (loose) — hibiscus with rose petals, holy basil and ginger. Brews a bright, tart, ruby-red cup. Naturally caffeine-free.",
+      "images": [],
+      "variations": [
+        {
+          "sku": "0043-52-gm-x-2",
+          "option": "52 gm x 2",
+          "mrp": 518.0,
+          "price": 518.0,
+          "discountPct": 0,
+          "inStock": true
+        },
+        {
+          "sku": "0043-105-gm-x-2",
+          "option": "105 gm x 2",
+          "mrp": 998.0,
+          "price": 998.0,
+          "discountPct": 0,
+          "inStock": true
+        }
+      ],
+      "priceFrom": 518.0
     }
   ]
 }
