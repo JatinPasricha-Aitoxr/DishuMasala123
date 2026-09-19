@@ -1,0 +1,3207 @@
+From f745a0f412d73f18882c817b31df24bb10809166 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 10 Sep 2026 20:21:10 +0000
+Subject: [PATCH 2/2] feat(cart): automatic cross-pillar bundle discount
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Implements CLAUDE.md §7.2's 2026-09-10 amendment: a cart containing at
+least one Tea-pillar line and one Masala-pillar line automatically
+gets a bundle discount, applied as a distinct server-computed
+crossPillarDiscountPaise line in lib/commerce/pricing.ts's
+PricingResult — never folded into discountPaise/couponCode, and never
+touching the coupons/coupon_redemptions tables (this is structural and
+automatic, not a manually-entered code).
+
+- Rate is read from settings ("cross_pillar_bundle_discount_percent",
+  default 10%) via a new getCrossPillarBundleDiscountPercent query,
+  following the exact pattern of getFreeShippingThresholdPaise. The
+  10% default is a PLACEHOLDER flagged for real client confirmation,
+  same status as content/home.ts's founderStory draft copy.
+- Discount = percent% off the single cheapest unit in the cart (chosen
+  over a coupons-style max_discount_paise cap as the simpler, more
+  defensible option — easy for a shopper to verify by eye).
+- lib/nav.ts's TEA_COLLECTION_SLUGS/MASALA_COLLECTION_SLUGS are now
+  exported and reused for pillar classification, instead of a second
+  list.
+- VariantPricingRow/PricingLine gain collectionSlug (joined from
+  `collections` in lib/db/queries/variants.ts) so pricing.ts can
+  classify each line without a second query.
+- orders.bundle_discount_paise (migration 0011) snapshots the applied
+  amount per order, separate from discount_paise, mirroring how the
+  schema already keeps discount and shipping as distinct columns.
+- Cart drawer/page (via OrderSummary) shows the applied discount as
+  its own "Tea + Masala bundle discount" row when active.
+- PDP's "you may also like" section links to the other pillar's
+  primary collection ("Add a <Pillar> favourite and save").
+- Server-recomputed like every other pricing figure (CLAUDE.md §7.5):
+  PricingInput has no field a client could use to supply a discount
+  amount at all.
+
+Vitest coverage added: no discount for single-pillar carts (Tea-only
+and Masala-only), discount applied for a cross-pillar cart, discount
+scales with the configured settings percent (not a literal), discount
+drops when the qualifying line is out of stock, and an explicit
+"client cannot supply a discount" case documenting why tampering isn't
+even expressible in PricingInput's shape.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MQNVwqyZwjSWp9fVcMH63X
+---
+ components/cart/OrderSummary.tsx              |    6 +
+ lib/commerce/__tests__/pricing.test.ts        |   79 +-
+ lib/commerce/pricing-deps.ts                  |    7 +-
+ lib/commerce/pricing.ts                       |   46 +-
+ .../migrations/0011_order_bundle_discount.sql |    1 +
+ lib/db/migrations/meta/0011_snapshot.json     | 2674 +++++++++++++++++
+ lib/db/migrations/meta/_journal.json          |    7 +
+ lib/db/mutations/orders.ts                    |    1 +
+ lib/db/queries/settings.ts                    |   24 +
+ lib/db/queries/variants.ts                    |    9 +-
+ lib/db/schema/orders.ts                       |    6 +
+ lib/nav.ts                                    |    8 +-
+ lib/store/__tests__/cart.test.ts              |    3 +
+ 13 files changed, 2864 insertions(+), 7 deletions(-)
+ create mode 100644 lib/db/migrations/0011_order_bundle_discount.sql
+ create mode 100644 lib/db/migrations/meta/0011_snapshot.json
+
+diff --git a/components/cart/OrderSummary.tsx b/components/cart/OrderSummary.tsx
+index 32bdc5e..f8e7f15 100644
+--- a/components/cart/OrderSummary.tsx
++++ b/components/cart/OrderSummary.tsx
+@@ -21,6 +21,12 @@ export function OrderSummary({ pricing }: { pricing: PricingResult | null }) {
+           <dd className="tabular-nums text-leaf">−{formatINR(pricing.discountPaise)}</dd>
+         </div>
+       )}
++      {pricing.crossPillarApplied && (
++        <div className="flex justify-between">
++          <dt className="text-ink-2">Tea + Masala bundle discount</dt>
++          <dd className="tabular-nums text-leaf">−{formatINR(pricing.crossPillarDiscountPaise)}</dd>
++        </div>
++      )}
+       <div className="flex justify-between">
+         <dt className="text-ink-2">Shipping</dt>
+         <dd className="tabular-nums text-ink">{pricing.shippingPaise > 0 ? formatINR(pricing.shippingPaise) : "Free"}</dd>
+diff --git a/lib/commerce/__tests__/pricing.test.ts b/lib/commerce/__tests__/pricing.test.ts
+index bb20dde..3708d6d 100644
+--- a/lib/commerce/__tests__/pricing.test.ts
++++ b/lib/commerce/__tests__/pricing.test.ts
+@@ -15,6 +15,7 @@ const BLUE_500: VariantPricingRow = {
+   variantId: 1,
+   productId: 10,
+   collectionId: 1,
++  collectionSlug: "blue-tea",
+   priority: 1,
+   productName: "Blue Tea",
+   sku: "BT-500",
+@@ -29,6 +30,7 @@ const RED_250: VariantPricingRow = {
+   variantId: 2,
+   productId: 11,
+   collectionId: 2,
++  collectionSlug: "red-tea",
+   priority: 2,
+   productName: "Red Tea",
+   sku: "RT-250",
+@@ -43,6 +45,7 @@ const OUT_OF_STOCK: VariantPricingRow = {
+   variantId: 3,
+   productId: 12,
+   collectionId: 5,
++  collectionSlug: "spices",
+   priority: 5,
+   productName: "Turmeric",
+   sku: "TU-100",
+@@ -53,8 +56,23 @@ const OUT_OF_STOCK: VariantPricingRow = {
+   stockQty: null,
+   imageStorageKey: null,
+ };
++const CORIANDER_100: VariantPricingRow = {
++  variantId: 4,
++  productId: 13,
++  collectionId: 5,
++  collectionSlug: "spices",
++  priority: 5,
++  productName: "Coriander Powder",
++  sku: "CP-100",
++  optionValue: "100g",
++  mrpPaise: paise(15000),
++  pricePaise: paise(12000),
++  inStock: true,
++  stockQty: null,
++  imageStorageKey: null,
++};
+ 
+-const CATALOG = [BLUE_500, RED_250, OUT_OF_STOCK];
++const CATALOG = [BLUE_500, RED_250, OUT_OF_STOCK, CORIANDER_100];
+ 
+ const WELCOME5: CouponRow = {
+   id: 1,
+@@ -79,6 +97,7 @@ function fakeDeps(overrides: Partial<PricingDeps> = {}): PricingDeps {
+     getCoupon: async (code) => (code.toUpperCase() === "WELCOME5" ? WELCOME5 : null),
+     getFreeShippingThresholdPaise: async () => paise(50000),
+     getStandardShippingPaise: async () => paise(5000),
++    getCrossPillarBundleDiscountPercent: async () => 10,
+     countCouponRedemptionsByEmail: async () => 0,
+     hasAnyOrderForEmail: async () => false,
+     ...overrides,
+@@ -186,6 +205,64 @@ describe("computePricing — coupon application end to end", () => {
+   });
+ });
+ 
++describe("computePricing — automatic cross-pillar bundle discount", () => {
++  it("applies no cross-pillar discount for a single-pillar (Tea only) cart", async () => {
++    const result = await computePricing(
++      { lines: [{ variantId: 1, qty: 1 }, { variantId: 2, qty: 1 }] }, // Blue Tea + Red Tea, both Tea
++      fakeDeps(),
++    );
++    expect(result.crossPillarDiscountPaise).toBe(0);
++    expect(result.crossPillarApplied).toBe(false);
++  });
++
++  it("applies no cross-pillar discount for a single-pillar (Masala only) cart", async () => {
++    const result = await computePricing({ lines: [{ variantId: 4, qty: 2 }] }, fakeDeps());
++    expect(result.crossPillarDiscountPaise).toBe(0);
++    expect(result.crossPillarApplied).toBe(false);
++  });
++
++  it("applies the cross-pillar discount when the cart spans Tea and Masala, as 10% of the cheapest unit", async () => {
++    // Blue Tea (50000) + Coriander (12000) — cheapest unit is the Coriander at 12000.
++    const result = await computePricing(
++      { lines: [{ variantId: 1, qty: 1 }, { variantId: 4, qty: 1 }] },
++      fakeDeps(),
++    );
++    expect(result.crossPillarApplied).toBe(true);
++    expect(result.crossPillarDiscountPaise).toBe(1200); // 10% of 12000
++    expect(result.subtotalPaise).toBe(62000);
++    expect(result.totalPaise).toBe(62000 - 1200); // over free-shipping threshold, no shipping
++  });
++
++  it("reads the discount percent from settings (deps), never a literal — a different configured rate changes the result", async () => {
++    const result = await computePricing(
++      { lines: [{ variantId: 1, qty: 1 }, { variantId: 4, qty: 1 }] },
++      fakeDeps({ getCrossPillarBundleDiscountPercent: async () => 20 }),
++    );
++    expect(result.crossPillarDiscountPaise).toBe(2400); // 20% of 12000
++  });
++
++  it("is server-recomputed and ignores anything the client might claim — no field on PricingInput accepts a discount amount", async () => {
++    // PricingInput only ever carries variantId/qty/couponCode/email; there is no way for a caller
++    // to pass a discount value in, so a "client-supplied discount" cannot even be expressed, let
++    // alone honoured. This proves the cross-pillar cart still ends up at the real server figure.
++    const result = await computePricing(
++      { lines: [{ variantId: 1, qty: 1 }, { variantId: 4, qty: 1 }] } as never,
++      fakeDeps(),
++    );
++    expect(result.crossPillarDiscountPaise).toBe(1200);
++    expect(result.totalPaise).toBe(62000 - 1200);
++  });
++
++  it("drops out when the qualifying Masala line is out of stock, since it never reaches priced lines", async () => {
++    const result = await computePricing(
++      { lines: [{ variantId: 1, qty: 1 }, { variantId: 3, qty: 1 }] }, // Blue Tea + out-of-stock Turmeric
++      fakeDeps(),
++    );
++    expect(result.crossPillarDiscountPaise).toBe(0);
++    expect(result.crossPillarApplied).toBe(false);
++  });
++});
++
+ describe("computeCouponDiscountPaise", () => {
+   it("computes a percent discount, rounded", () => {
+     expect(computeCouponDiscountPaise(WELCOME5, paise(9999))).toBe(500); // round(9999*0.05)=500
+diff --git a/lib/commerce/pricing-deps.ts b/lib/commerce/pricing-deps.ts
+index 310d592..f15f71d 100644
+--- a/lib/commerce/pricing-deps.ts
++++ b/lib/commerce/pricing-deps.ts
+@@ -8,7 +8,11 @@ import "server-only";
+  */
+ import { getVariantsForPricing } from "@/lib/db/queries/variants";
+ import { countCouponRedemptionsByEmail, getCouponByCode, hasAnyOrderForEmail } from "@/lib/db/queries/coupons";
+-import { getFreeShippingThresholdPaise, getStandardShippingPaise } from "@/lib/db/queries/settings";
++import {
++  getCrossPillarBundleDiscountPercent,
++  getFreeShippingThresholdPaise,
++  getStandardShippingPaise,
++} from "@/lib/db/queries/settings";
+ import type { PricingDeps } from "./pricing";
+ 
+ export const defaultPricingDeps: PricingDeps = {
+@@ -16,6 +20,7 @@ export const defaultPricingDeps: PricingDeps = {
+   getCoupon: getCouponByCode,
+   getFreeShippingThresholdPaise,
+   getStandardShippingPaise,
++  getCrossPillarBundleDiscountPercent,
+   countCouponRedemptionsByEmail,
+   hasAnyOrderForEmail,
+ };
+diff --git a/lib/commerce/pricing.ts b/lib/commerce/pricing.ts
+index 8db015f..0516dc2 100644
+--- a/lib/commerce/pricing.ts
++++ b/lib/commerce/pricing.ts
+@@ -15,6 +15,7 @@
+ import { paise, sumPaise, type Paise } from "@/lib/money";
+ import type { VariantPricingRow } from "@/lib/db/queries/variants";
+ import type { CouponRow } from "@/lib/db/queries/coupons";
++import { TEA_COLLECTION_SLUGS, MASALA_COLLECTION_SLUGS } from "@/lib/nav";
+ 
+ export interface PricingLineInput {
+   variantId: number;
+@@ -41,6 +42,7 @@ export interface PricingLine {
+   /** Display-only (CLAUDE.md §7.2 priority) — passed through so the cart's upsell rail can sort
+    * without a second query; never part of any money computation. */
+   priority: number;
++  collectionSlug: string;
+   sku: string;
+   optionValue: string;
+   mrpPaise: Paise;
+@@ -73,6 +75,14 @@ export interface PricingResult {
+   lines: PricingLine[];
+   subtotalPaise: Paise;
+   discountPaise: Paise;
++  /** The automatic cross-pillar bundle discount (CLAUDE.md §7.2's 2026-09-10 amendment) — a
++   * distinct, server-computed line, deliberately never folded into `discountPaise`/`couponCode`:
++   * those two are reserved for manually-entered coupon codes (the `coupons` table). This is
++   * structural and automatic, has no code, and does not touch `coupons`/`coupon_redemptions`. */
++  crossPillarDiscountPaise: Paise;
++  /** True only when `crossPillarDiscountPaise > 0` — lets a UI show/hide the row without
++   * re-deriving the rule itself. */
++  crossPillarApplied: boolean;
+   shippingPaise: Paise;
+   totalPaise: Paise;
+   /** Sum of (mrp - price) * qty across priced lines — "you saved ₹X vs MRP", independent of any coupon. */
+@@ -92,6 +102,9 @@ export interface PricingDeps {
+   getCoupon: (code: string) => Promise<CouponRow | null>;
+   getFreeShippingThresholdPaise: () => Promise<Paise>;
+   getStandardShippingPaise: () => Promise<Paise>;
++  /** Whole-number percent for the automatic cross-pillar bundle discount (CLAUDE.md §7.2's
++   * 2026-09-10 amendment) — read from `settings`, never a hardcoded literal in this file. */
++  getCrossPillarBundleDiscountPercent: () => Promise<number>;
+   countCouponRedemptionsByEmail: (couponId: number, email: string) => Promise<number>;
+   hasAnyOrderForEmail: (email: string) => Promise<boolean>;
+ }
+@@ -190,6 +203,28 @@ export function computeCouponDiscountPaise(coupon: CouponRow, subtotalPaise: Pai
+   return paise(discount);
+ }
+ 
++/**
++ * The automatic cross-pillar bundle discount (CLAUDE.md §7.2's 2026-09-10 amendment): when the
++ * priced cart contains at least one Tea-pillar line and at least one Masala-pillar line, apply
++ * `percent`% off the single cheapest qualifying unit in the cart. Deliberately the simpler of the
++ * two options considered (a `max_discount_paise`-style cap, like `coupons`, was the other) — a
++ * straight percent off one unit is easy for a shopper to verify by eye ("that's 10% off my
++ * cheapest item") and needs no second settings key to reason about, at the cost of being a smaller
++ * absolute discount on a large cart than a subtotal-percentage would give; revisit if the client
++ * wants the bigger-basket incentive instead. Pure — no I/O, takes already-priced lines and the
++ * settings-derived percent, so it's unit-testable with no database in the loop.
++ */
++function computeCrossPillarDiscountPaise(lines: PricingLine[], percent: number): Paise {
++  if (percent <= 0 || lines.length === 0) return paise(0);
++
++  const hasTea = lines.some((l) => TEA_COLLECTION_SLUGS.has(l.collectionSlug));
++  const hasMasala = lines.some((l) => MASALA_COLLECTION_SLUGS.has(l.collectionSlug));
++  if (!hasTea || !hasMasala) return paise(0);
++
++  const cheapestUnitPaise = Math.min(...lines.map((l) => l.unitPricePaise));
++  return paise(Math.round((cheapestUnitPaise * percent) / 100));
++}
++
+ /**
+  * The pricing engine. Re-reads every variant fresh from Postgres (via `deps`), clamps quantities
+  * to real stock, prices only what's actually purchasable, evaluates an optional coupon against
+@@ -233,6 +268,7 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
+       collectionId: v.collectionId,
+       productName: v.productName,
+       priority: v.priority,
++      collectionSlug: v.collectionSlug,
+       sku: v.sku,
+       optionValue: v.optionValue,
+       mrpPaise: v.mrpPaise,
+@@ -276,9 +312,10 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
+     }
+   }
+ 
+-  const [freeShippingThresholdPaise, standardShippingPaise] = await Promise.all([
++  const [freeShippingThresholdPaise, standardShippingPaise, crossPillarPercent] = await Promise.all([
+     deps.getFreeShippingThresholdPaise(),
+     deps.getStandardShippingPaise(),
++    deps.getCrossPillarBundleDiscountPercent(),
+   ]);
+   // Free-shipping eligibility is judged on the undiscounted subtotal — "spend ₹500" means cart
+   // value, not the post-coupon amount — matching the cart drawer's progress bar, which has no
+@@ -286,7 +323,10 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
+   const shippingPaise: Paise = subtotalPaise >= freeShippingThresholdPaise ? paise(0) : standardShippingPaise;
+   const rupeesToFreeShippingPaise: Paise = paise(Math.max(0, freeShippingThresholdPaise - subtotalPaise));
+ 
+-  const totalPaise = paise(subtotalPaise - discountPaise + shippingPaise);
++  const crossPillarDiscountPaise = computeCrossPillarDiscountPaise(lines, crossPillarPercent);
++  const crossPillarApplied = crossPillarDiscountPaise > 0;
++
++  const totalPaise = paise(subtotalPaise - discountPaise - crossPillarDiscountPaise + shippingPaise);
+ 
+   const requestedCouponRejected = !!requestedCode && couponCode === null;
+   const anyStockIssue = issues.some((i) => i.type !== "coupon_invalid");
+@@ -296,6 +336,8 @@ export async function computePricing(input: PricingInput, deps: PricingDeps): Pr
+     lines,
+     subtotalPaise,
+     discountPaise,
++    crossPillarDiscountPaise,
++    crossPillarApplied,
+     shippingPaise,
+     totalPaise,
+     savingsPaise,
+diff --git a/lib/db/migrations/0011_order_bundle_discount.sql b/lib/db/migrations/0011_order_bundle_discount.sql
+new file mode 100644
+index 0000000..c09a292
+--- /dev/null
++++ b/lib/db/migrations/0011_order_bundle_discount.sql
+@@ -0,0 +1 @@
++ALTER TABLE "orders" ADD COLUMN "bundle_discount_paise" integer DEFAULT 0 NOT NULL;
+\ No newline at end of file
+diff --git a/lib/db/migrations/meta/0011_snapshot.json b/lib/db/migrations/meta/0011_snapshot.json
+new file mode 100644
+index 0000000..d821881
+--- /dev/null
++++ b/lib/db/migrations/meta/0011_snapshot.json
+@@ -0,0 +1,2674 @@
++{
++  "id": "44e841dd-50b9-4716-a072-578ff79b3427",
++  "prevId": "50d19966-53d7-4d51-9d45-813cb2704e34",
++  "version": "7",
++  "dialect": "postgresql",
++  "tables": {
++    "public.addresses": {
++      "name": "addresses",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "addresses_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "user_id": {
++          "name": "user_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "label": {
++          "name": "label",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "phone": {
++          "name": "phone",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "line1": {
++          "name": "line1",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "line2": {
++          "name": "line2",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "city": {
++          "name": "city",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "state": {
++          "name": "state",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "pincode": {
++          "name": "pincode",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "is_default": {
++          "name": "is_default",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "addresses_user_id_idx": {
++          "name": "addresses_user_id_idx",
++          "columns": [
++            {
++              "expression": "user_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "addresses_user_id_users_id_fk": {
++          "name": "addresses_user_id_users_id_fk",
++          "tableFrom": "addresses",
++          "tableTo": "users",
++          "columnsFrom": [
++            "user_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.users": {
++      "name": "users",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "users_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "auth_user_id": {
++          "name": "auth_user_id",
++          "type": "uuid",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "email": {
++          "name": "email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "phone": {
++          "name": "phone",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "role": {
++          "name": "role",
++          "type": "user_role",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'customer'"
++        },
++        "email_verified_at": {
++          "name": "email_verified_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "last_login_at": {
++          "name": "last_login_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "updated_at": {
++          "name": "updated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "users_email_uniq": {
++          "name": "users_email_uniq",
++          "columns": [
++            {
++              "expression": "email",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "users_auth_user_id_uniq": {
++          "name": "users_auth_user_id_uniq",
++          "columns": [
++            {
++              "expression": "auth_user_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.auth_attempts": {
++      "name": "auth_attempts",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "auth_attempts_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "action": {
++          "name": "action",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "identifier_hash": {
++          "name": "identifier_hash",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "auth_attempts_action_identifier_created_at_idx": {
++          "name": "auth_attempts_action_identifier_created_at_idx",
++          "columns": [
++            {
++              "expression": "action",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "identifier_hash",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "created_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.cart_items": {
++      "name": "cart_items",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "cart_items_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "user_id": {
++          "name": "user_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "variant_id": {
++          "name": "variant_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "qty": {
++          "name": "qty",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "updated_at": {
++          "name": "updated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "cart_items_user_id_variant_id_uniq": {
++          "name": "cart_items_user_id_variant_id_uniq",
++          "columns": [
++            {
++              "expression": "user_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "variant_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "cart_items_user_id_users_id_fk": {
++          "name": "cart_items_user_id_users_id_fk",
++          "tableFrom": "cart_items",
++          "tableTo": "users",
++          "columnsFrom": [
++            "user_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        },
++        "cart_items_variant_id_variants_id_fk": {
++          "name": "cart_items_variant_id_variants_id_fk",
++          "tableFrom": "cart_items",
++          "tableTo": "variants",
++          "columnsFrom": [
++            "variant_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.collections": {
++      "name": "collections",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "collections_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "slug": {
++          "name": "slug",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "title": {
++          "name": "title",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "tagline": {
++          "name": "tagline",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "priority": {
++          "name": "priority",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "accent_token": {
++          "name": "accent_token",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "position": {
++          "name": "position",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "seo_title": {
++          "name": "seo_title",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "seo_description": {
++          "name": "seo_description",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {
++        "collections_slug_uniq": {
++          "name": "collections_slug_uniq",
++          "columns": [
++            {
++              "expression": "slug",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.product_images": {
++      "name": "product_images",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "product_images_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "product_id": {
++          "name": "product_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "storage_key": {
++          "name": "storage_key",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "alt": {
++          "name": "alt",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "width": {
++          "name": "width",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "height": {
++          "name": "height",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "position": {
++          "name": "position",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "is_primary": {
++          "name": "is_primary",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": false
++        }
++      },
++      "indexes": {
++        "product_images_product_id_idx": {
++          "name": "product_images_product_id_idx",
++          "columns": [
++            {
++              "expression": "product_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "product_images_product_id_products_id_fk": {
++          "name": "product_images_product_id_products_id_fk",
++          "tableFrom": "product_images",
++          "tableTo": "products",
++          "columnsFrom": [
++            "product_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.products": {
++      "name": "products",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "products_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "slug": {
++          "name": "slug",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "name": {
++          "name": "name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "collection_id": {
++          "name": "collection_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "short_description": {
++          "name": "short_description",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "description": {
++          "name": "description",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "ingredients": {
++          "name": "ingredients",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "brew_guide": {
++          "name": "brew_guide",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "tags": {
++          "name": "tags",
++          "type": "text[]",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'{}'"
++        },
++        "option_label": {
++          "name": "option_label",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "priority": {
++          "name": "priority",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "status": {
++          "name": "status",
++          "type": "content_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'draft'"
++        },
++        "seo_title": {
++          "name": "seo_title",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "seo_description": {
++          "name": "seo_description",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "updated_at": {
++          "name": "updated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "products_slug_uniq": {
++          "name": "products_slug_uniq",
++          "columns": [
++            {
++              "expression": "slug",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "products_collection_id_idx": {
++          "name": "products_collection_id_idx",
++          "columns": [
++            {
++              "expression": "collection_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "products_priority_status_idx": {
++          "name": "products_priority_status_idx",
++          "columns": [
++            {
++              "expression": "priority",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "status",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "products_collection_id_collections_id_fk": {
++          "name": "products_collection_id_collections_id_fk",
++          "tableFrom": "products",
++          "tableTo": "collections",
++          "columnsFrom": [
++            "collection_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "restrict",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.variants": {
++      "name": "variants",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "variants_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "product_id": {
++          "name": "product_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "sku": {
++          "name": "sku",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "option_value": {
++          "name": "option_value",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "mrp_paise": {
++          "name": "mrp_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "price_paise": {
++          "name": "price_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "weight_grams": {
++          "name": "weight_grams",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "in_stock": {
++          "name": "in_stock",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": true
++        },
++        "stock_qty": {
++          "name": "stock_qty",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "position": {
++          "name": "position",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        }
++      },
++      "indexes": {
++        "variants_sku_uniq": {
++          "name": "variants_sku_uniq",
++          "columns": [
++            {
++              "expression": "sku",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "variants_product_id_idx": {
++          "name": "variants_product_id_idx",
++          "columns": [
++            {
++              "expression": "product_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "variants_product_id_products_id_fk": {
++          "name": "variants_product_id_products_id_fk",
++          "tableFrom": "variants",
++          "tableTo": "products",
++          "columnsFrom": [
++            "product_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.coupon_redemptions": {
++      "name": "coupon_redemptions",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "coupon_redemptions_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "coupon_id": {
++          "name": "coupon_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "order_id": {
++          "name": "order_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "user_id": {
++          "name": "user_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "coupon_redemptions_coupon_id_idx": {
++          "name": "coupon_redemptions_coupon_id_idx",
++          "columns": [
++            {
++              "expression": "coupon_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "coupon_redemptions_order_id_idx": {
++          "name": "coupon_redemptions_order_id_idx",
++          "columns": [
++            {
++              "expression": "order_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "coupon_redemptions_user_id_idx": {
++          "name": "coupon_redemptions_user_id_idx",
++          "columns": [
++            {
++              "expression": "user_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "coupon_redemptions_coupon_id_coupons_id_fk": {
++          "name": "coupon_redemptions_coupon_id_coupons_id_fk",
++          "tableFrom": "coupon_redemptions",
++          "tableTo": "coupons",
++          "columnsFrom": [
++            "coupon_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        },
++        "coupon_redemptions_order_id_orders_id_fk": {
++          "name": "coupon_redemptions_order_id_orders_id_fk",
++          "tableFrom": "coupon_redemptions",
++          "tableTo": "orders",
++          "columnsFrom": [
++            "order_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "restrict",
++          "onUpdate": "no action"
++        },
++        "coupon_redemptions_user_id_users_id_fk": {
++          "name": "coupon_redemptions_user_id_users_id_fk",
++          "tableFrom": "coupon_redemptions",
++          "tableTo": "users",
++          "columnsFrom": [
++            "user_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.coupons": {
++      "name": "coupons",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "coupons_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "code": {
++          "name": "code",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "kind": {
++          "name": "kind",
++          "type": "coupon_kind",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "value": {
++          "name": "value",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "min_spend_paise": {
++          "name": "min_spend_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "max_discount_paise": {
++          "name": "max_discount_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "first_order_only": {
++          "name": "first_order_only",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": false
++        },
++        "usage_limit": {
++          "name": "usage_limit",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "used_count": {
++          "name": "used_count",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "per_user_limit": {
++          "name": "per_user_limit",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "starts_at": {
++          "name": "starts_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "ends_at": {
++          "name": "ends_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "active": {
++          "name": "active",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": true
++        },
++        "applies_to": {
++          "name": "applies_to",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {
++        "coupons_code_uniq": {
++          "name": "coupons_code_uniq",
++          "columns": [
++            {
++              "expression": "code",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.order_items": {
++      "name": "order_items",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "order_items_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "order_id": {
++          "name": "order_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "variant_id": {
++          "name": "variant_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "product_name": {
++          "name": "product_name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "option_value": {
++          "name": "option_value",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "sku": {
++          "name": "sku",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "mrp_paise": {
++          "name": "mrp_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "unit_price_paise": {
++          "name": "unit_price_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "qty": {
++          "name": "qty",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "line_total_paise": {
++          "name": "line_total_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "image_storage_key": {
++          "name": "image_storage_key",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {
++        "order_items_order_id_idx": {
++          "name": "order_items_order_id_idx",
++          "columns": [
++            {
++              "expression": "order_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "order_items_order_id_orders_id_fk": {
++          "name": "order_items_order_id_orders_id_fk",
++          "tableFrom": "order_items",
++          "tableTo": "orders",
++          "columnsFrom": [
++            "order_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "restrict",
++          "onUpdate": "no action"
++        },
++        "order_items_variant_id_variants_id_fk": {
++          "name": "order_items_variant_id_variants_id_fk",
++          "tableFrom": "order_items",
++          "tableTo": "variants",
++          "columnsFrom": [
++            "variant_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "set null",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.orders": {
++      "name": "orders",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "orders_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "order_number": {
++          "name": "order_number",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "idempotency_key": {
++          "name": "idempotency_key",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "user_id": {
++          "name": "user_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "email": {
++          "name": "email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "phone": {
++          "name": "phone",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "status": {
++          "name": "status",
++          "type": "order_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'pending'"
++        },
++        "payment_method": {
++          "name": "payment_method",
++          "type": "payment_method",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "payment_status": {
++          "name": "payment_status",
++          "type": "payment_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'pending'"
++        },
++        "subtotal_paise": {
++          "name": "subtotal_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "discount_paise": {
++          "name": "discount_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "bundle_discount_paise": {
++          "name": "bundle_discount_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "shipping_paise": {
++          "name": "shipping_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        },
++        "total_paise": {
++          "name": "total_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "coupon_code": {
++          "name": "coupon_code",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "razorpay_order_id": {
++          "name": "razorpay_order_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "razorpay_payment_id": {
++          "name": "razorpay_payment_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "shipping_address": {
++          "name": "shipping_address",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "billing_address": {
++          "name": "billing_address",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "shiprocket_order_id": {
++          "name": "shiprocket_order_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "awb": {
++          "name": "awb",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "courier": {
++          "name": "courier",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "tracking_url": {
++          "name": "tracking_url",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "customer_note": {
++          "name": "customer_note",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "staff_note": {
++          "name": "staff_note",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "refund_amount_paise": {
++          "name": "refund_amount_paise",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "refund_note": {
++          "name": "refund_note",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "razorpay_refund_id": {
++          "name": "razorpay_refund_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "refunded_at": {
++          "name": "refunded_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "placed_at": {
++          "name": "placed_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "updated_at": {
++          "name": "updated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "orders_order_number_uniq": {
++          "name": "orders_order_number_uniq",
++          "columns": [
++            {
++              "expression": "order_number",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "orders_idempotency_key_uniq": {
++          "name": "orders_idempotency_key_uniq",
++          "columns": [
++            {
++              "expression": "idempotency_key",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "orders_razorpay_payment_id_uniq": {
++          "name": "orders_razorpay_payment_id_uniq",
++          "columns": [
++            {
++              "expression": "razorpay_payment_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "orders_status_placed_at_idx": {
++          "name": "orders_status_placed_at_idx",
++          "columns": [
++            {
++              "expression": "status",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "placed_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "orders_user_id_idx": {
++          "name": "orders_user_id_idx",
++          "columns": [
++            {
++              "expression": "user_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "orders_phone_idx": {
++          "name": "orders_phone_idx",
++          "columns": [
++            {
++              "expression": "phone",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "orders_email_idx": {
++          "name": "orders_email_idx",
++          "columns": [
++            {
++              "expression": "email",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "orders_user_id_users_id_fk": {
++          "name": "orders_user_id_users_id_fk",
++          "tableFrom": "orders",
++          "tableTo": "users",
++          "columnsFrom": [
++            "user_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "set null",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.review_photos": {
++      "name": "review_photos",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "review_photos_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "review_id": {
++          "name": "review_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "storage_key": {
++          "name": "storage_key",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "position": {
++          "name": "position",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true,
++          "default": 0
++        }
++      },
++      "indexes": {
++        "review_photos_review_id_idx": {
++          "name": "review_photos_review_id_idx",
++          "columns": [
++            {
++              "expression": "review_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "review_photos_review_id_reviews_id_fk": {
++          "name": "review_photos_review_id_reviews_id_fk",
++          "tableFrom": "review_photos",
++          "tableTo": "reviews",
++          "columnsFrom": [
++            "review_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.reviews": {
++      "name": "reviews",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "reviews_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "product_id": {
++          "name": "product_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "user_id": {
++          "name": "user_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "order_id": {
++          "name": "order_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "author_name": {
++          "name": "author_name",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "email": {
++          "name": "email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "rating": {
++          "name": "rating",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "title": {
++          "name": "title",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "body": {
++          "name": "body",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "status": {
++          "name": "status",
++          "type": "review_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'pending'"
++        },
++        "verified_buyer": {
++          "name": "verified_buyer",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true,
++          "default": false
++        },
++        "ip_hash": {
++          "name": "ip_hash",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        },
++        "moderated_at": {
++          "name": "moderated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "moderated_by": {
++          "name": "moderated_by",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        }
++      },
++      "indexes": {
++        "reviews_product_id_status_idx": {
++          "name": "reviews_product_id_status_idx",
++          "columns": [
++            {
++              "expression": "product_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "status",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "reviews_email_created_at_idx": {
++          "name": "reviews_email_created_at_idx",
++          "columns": [
++            {
++              "expression": "email",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "created_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "reviews_ip_hash_created_at_idx": {
++          "name": "reviews_ip_hash_created_at_idx",
++          "columns": [
++            {
++              "expression": "ip_hash",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "created_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "reviews_product_id_products_id_fk": {
++          "name": "reviews_product_id_products_id_fk",
++          "tableFrom": "reviews",
++          "tableTo": "products",
++          "columnsFrom": [
++            "product_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        },
++        "reviews_user_id_users_id_fk": {
++          "name": "reviews_user_id_users_id_fk",
++          "tableFrom": "reviews",
++          "tableTo": "users",
++          "columnsFrom": [
++            "user_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "set null",
++          "onUpdate": "no action"
++        },
++        "reviews_order_id_orders_id_fk": {
++          "name": "reviews_order_id_orders_id_fk",
++          "tableFrom": "reviews",
++          "tableTo": "orders",
++          "columnsFrom": [
++            "order_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "set null",
++          "onUpdate": "no action"
++        },
++        "reviews_moderated_by_users_id_fk": {
++          "name": "reviews_moderated_by_users_id_fk",
++          "tableFrom": "reviews",
++          "tableTo": "users",
++          "columnsFrom": [
++            "moderated_by"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "set null",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {
++        "reviews_rating_range": {
++          "name": "reviews_rating_range",
++          "value": "\"reviews\".\"rating\" between 1 and 5"
++        }
++      },
++      "isRLSEnabled": false
++    },
++    "public.wishlist_items": {
++      "name": "wishlist_items",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "wishlist_items_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "user_id": {
++          "name": "user_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "product_id": {
++          "name": "product_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "wishlist_items_user_id_product_id_uniq": {
++          "name": "wishlist_items_user_id_product_id_uniq",
++          "columns": [
++            {
++              "expression": "user_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "product_id",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {
++        "wishlist_items_user_id_users_id_fk": {
++          "name": "wishlist_items_user_id_users_id_fk",
++          "tableFrom": "wishlist_items",
++          "tableTo": "users",
++          "columnsFrom": [
++            "user_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        },
++        "wishlist_items_product_id_products_id_fk": {
++          "name": "wishlist_items_product_id_products_id_fk",
++          "tableFrom": "wishlist_items",
++          "tableTo": "products",
++          "columnsFrom": [
++            "product_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "cascade",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.pages": {
++      "name": "pages",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "pages_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "slug": {
++          "name": "slug",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "title": {
++          "name": "title",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "body": {
++          "name": "body",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "status": {
++          "name": "status",
++          "type": "content_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'draft'"
++        },
++        "updated_at": {
++          "name": "updated_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "pages_slug_uniq": {
++          "name": "pages_slug_uniq",
++          "columns": [
++            {
++              "expression": "slug",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.posts": {
++      "name": "posts",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "posts_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "slug": {
++          "name": "slug",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "kind": {
++          "name": "kind",
++          "type": "post_kind",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "title": {
++          "name": "title",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "excerpt": {
++          "name": "excerpt",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "body": {
++          "name": "body",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "cover_storage_key": {
++          "name": "cover_storage_key",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "status": {
++          "name": "status",
++          "type": "content_status",
++          "typeSchema": "public",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'draft'"
++        },
++        "author": {
++          "name": "author",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "published_at": {
++          "name": "published_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "seo_title": {
++          "name": "seo_title",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "seo_description": {
++          "name": "seo_description",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "related_product_ids": {
++          "name": "related_product_ids",
++          "type": "integer[]",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "'{}'"
++        }
++      },
++      "indexes": {
++        "posts_slug_uniq": {
++          "name": "posts_slug_uniq",
++          "columns": [
++            {
++              "expression": "slug",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        },
++        "posts_kind_status_published_at_idx": {
++          "name": "posts_kind_status_published_at_idx",
++          "columns": [
++            {
++              "expression": "kind",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "status",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            },
++            {
++              "expression": "published_at",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": false,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.newsletter_subs": {
++      "name": "newsletter_subs",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "newsletter_subs_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "email": {
++          "name": "email",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "confirmed_at": {
++          "name": "confirmed_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "source": {
++          "name": "source",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {
++        "newsletter_subs_email_uniq": {
++          "name": "newsletter_subs_email_uniq",
++          "columns": [
++            {
++              "expression": "email",
++              "isExpression": false,
++              "asc": true,
++              "nulls": "last"
++            }
++          ],
++          "isUnique": true,
++          "concurrently": false,
++          "method": "btree",
++          "with": {}
++        }
++      },
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.pincode_cache": {
++      "name": "pincode_cache",
++      "schema": "",
++      "columns": {
++        "pincode": {
++          "name": "pincode",
++          "type": "text",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "serviceable": {
++          "name": "serviceable",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "cod_available": {
++          "name": "cod_available",
++          "type": "boolean",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "eta_days": {
++          "name": "eta_days",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "checked_at": {
++          "name": "checked_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.settings": {
++      "name": "settings",
++      "schema": "",
++      "columns": {
++        "key": {
++          "name": "key",
++          "type": "text",
++          "primaryKey": true,
++          "notNull": true
++        },
++        "value": {
++          "name": "value",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": true
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {},
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    },
++    "public.audit_log": {
++      "name": "audit_log",
++      "schema": "",
++      "columns": {
++        "id": {
++          "name": "id",
++          "type": "integer",
++          "primaryKey": true,
++          "notNull": true,
++          "identity": {
++            "type": "always",
++            "name": "audit_log_id_seq",
++            "schema": "public",
++            "increment": "1",
++            "startWith": "1",
++            "minValue": "1",
++            "maxValue": "2147483647",
++            "cache": "1",
++            "cycle": false
++          }
++        },
++        "actor_user_id": {
++          "name": "actor_user_id",
++          "type": "integer",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "action": {
++          "name": "action",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "entity": {
++          "name": "entity",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "entity_id": {
++          "name": "entity_id",
++          "type": "text",
++          "primaryKey": false,
++          "notNull": true
++        },
++        "diff": {
++          "name": "diff",
++          "type": "jsonb",
++          "primaryKey": false,
++          "notNull": false
++        },
++        "created_at": {
++          "name": "created_at",
++          "type": "timestamp with time zone",
++          "primaryKey": false,
++          "notNull": true,
++          "default": "now()"
++        }
++      },
++      "indexes": {},
++      "foreignKeys": {
++        "audit_log_actor_user_id_users_id_fk": {
++          "name": "audit_log_actor_user_id_users_id_fk",
++          "tableFrom": "audit_log",
++          "tableTo": "users",
++          "columnsFrom": [
++            "actor_user_id"
++          ],
++          "columnsTo": [
++            "id"
++          ],
++          "onDelete": "set null",
++          "onUpdate": "no action"
++        }
++      },
++      "compositePrimaryKeys": {},
++      "uniqueConstraints": {},
++      "policies": {},
++      "checkConstraints": {},
++      "isRLSEnabled": false
++    }
++  },
++  "enums": {
++    "public.content_status": {
++      "name": "content_status",
++      "schema": "public",
++      "values": [
++        "draft",
++        "published"
++      ]
++    },
++    "public.coupon_kind": {
++      "name": "coupon_kind",
++      "schema": "public",
++      "values": [
++        "percent",
++        "fixed"
++      ]
++    },
++    "public.order_status": {
++      "name": "order_status",
++      "schema": "public",
++      "values": [
++        "pending",
++        "confirmed",
++        "packed",
++        "shipped",
++        "delivered",
++        "cancelled",
++        "refunded"
++      ]
++    },
++    "public.payment_method": {
++      "name": "payment_method",
++      "schema": "public",
++      "values": [
++        "razorpay",
++        "cod"
++      ]
++    },
++    "public.payment_status": {
++      "name": "payment_status",
++      "schema": "public",
++      "values": [
++        "pending",
++        "paid",
++        "failed",
++        "refunded"
++      ]
++    },
++    "public.post_kind": {
++      "name": "post_kind",
++      "schema": "public",
++      "values": [
++        "blog",
++        "recipe"
++      ]
++    },
++    "public.review_status": {
++      "name": "review_status",
++      "schema": "public",
++      "values": [
++        "pending",
++        "approved",
++        "rejected"
++      ]
++    },
++    "public.user_role": {
++      "name": "user_role",
++      "schema": "public",
++      "values": [
++        "customer",
++        "staff",
++        "admin"
++      ]
++    }
++  },
++  "schemas": {},
++  "sequences": {
++    "public.order_number_seq": {
++      "name": "order_number_seq",
++      "schema": "public",
++      "increment": "1",
++      "startWith": "1",
++      "minValue": "1",
++      "maxValue": "9223372036854775807",
++      "cache": "1",
++      "cycle": false
++    }
++  },
++  "roles": {},
++  "policies": {},
++  "views": {},
++  "_meta": {
++    "columns": {},
++    "schemas": {},
++    "tables": {}
++  }
++}
+\ No newline at end of file
+diff --git a/lib/db/migrations/meta/_journal.json b/lib/db/migrations/meta/_journal.json
+index 53925f3..5b3970b 100644
+--- a/lib/db/migrations/meta/_journal.json
++++ b/lib/db/migrations/meta/_journal.json
+@@ -78,6 +78,13 @@
+       "when": 1788616424167,
+       "tag": "0010_user_self_read_policy",
+       "breakpoints": true
++    },
++    {
++      "idx": 11,
++      "version": "7",
++      "when": 1789071382000,
++      "tag": "0011_order_bundle_discount",
++      "breakpoints": true
+     }
+   ]
+ }
+\ No newline at end of file
+diff --git a/lib/db/mutations/orders.ts b/lib/db/mutations/orders.ts
+index 7f3c10c..1018b79 100644
+--- a/lib/db/mutations/orders.ts
++++ b/lib/db/mutations/orders.ts
+@@ -88,6 +88,7 @@ export async function createOrderTransaction(input: CreateOrderInput): Promise<C
+           paymentStatus: initialPaymentStatus,
+           subtotalPaise: input.pricing.subtotalPaise,
+           discountPaise: input.pricing.discountPaise,
++          bundleDiscountPaise: input.pricing.crossPillarDiscountPaise,
+           shippingPaise: input.pricing.shippingPaise,
+           totalPaise: input.pricing.totalPaise,
+           couponCode: input.pricing.couponCode,
+diff --git a/lib/db/queries/settings.ts b/lib/db/queries/settings.ts
+index 213be37..678f66b 100644
+--- a/lib/db/queries/settings.ts
++++ b/lib/db/queries/settings.ts
+@@ -66,6 +66,30 @@ export async function getStandardShippingPaise(): Promise<Paise> {
+   return paise(row.value);
+ }
+ 
++// PLACEHOLDER RATE — needs real client confirmation, same status as content/home.ts's founderStory
++// draft copy. 10% was chosen as a defensible starting point (roughly matching WELCOME5's order of
++// magnitude) but Arun has not signed off on this specific number; flagged, not invented, per
++// CLAUDE.md §8.
++const FALLBACK_CROSS_PILLAR_DISCOUNT_PERCENT = 10;
++
++/** The automatic cross-pillar bundle discount's percentage (CLAUDE.md §7.2's 2026-09-10
++ * amendment: incentivize a Tea-only or Masala-only shopper to add the other pillar), read from
++ * `settings` — never a hardcoded literal at a pricing call site (same discipline as
++ * `getFreeShippingThresholdPaise`). A whole-number percent, mirroring `coupons.value`'s
++ * `kind: "percent"` shape. */
++export async function getCrossPillarBundleDiscountPercent(): Promise<number> {
++  const [row] = await db
++    .select({ value: settings.value })
++    .from(settings)
++    .where(eq(settings.key, "cross_pillar_bundle_discount_percent"))
++    .limit(1);
++
++  if (row == null || typeof row.value !== "number") {
++    return FALLBACK_CROSS_PILLAR_DISCOUNT_PERCENT;
++  }
++  return row.value;
++}
++
+ /** GSTIN for the footer's tax note — "TODO" as seeded until the client supplies a real one. */
+ export async function getGstin(): Promise<string | null> {
+   const [row] = await db
+diff --git a/lib/db/queries/variants.ts b/lib/db/queries/variants.ts
+index ae1eed6..926b3c0 100644
+--- a/lib/db/queries/variants.ts
++++ b/lib/db/queries/variants.ts
+@@ -2,7 +2,7 @@ import "server-only";
+ 
+ import { and, eq, inArray } from "drizzle-orm";
+ import { db } from "../index";
+-import { productImages, products, variants } from "../schema";
++import { collections, productImages, products, variants } from "../schema";
+ import { paise, type Paise } from "@/lib/money";
+ 
+ /** Everything `lib/commerce/pricing.ts` needs to price one cart line, read fresh from Postgres —
+@@ -11,6 +11,11 @@ export interface VariantPricingRow {
+   variantId: number;
+   productId: number;
+   collectionId: number;
++  /** The variant's collection slug — read alongside everything else here purely so the
++   * cross-pillar bundle discount (lib/commerce/pricing.ts) can classify each cart line as Tea or
++   * Masala (lib/nav.ts's TEA_COLLECTION_SLUGS/MASALA_COLLECTION_SLUGS) without a second query.
++   * Never part of any money computation on its own. */
++  collectionSlug: string;
+   productName: string;
+   /** The product's own priority (CLAUDE.md §7.2) — carried through pricing so display-only
+    * consumers (cart upsells) can sort/filter by it without a second round trip. Never used for
+@@ -39,6 +44,7 @@ export async function getVariantsForPricing(ids: number[]): Promise<VariantPrici
+       variantId: variants.id,
+       productId: variants.productId,
+       collectionId: products.collectionId,
++      collectionSlug: collections.slug,
+       productName: products.name,
+       priority: products.priority,
+       sku: variants.sku,
+@@ -50,6 +56,7 @@ export async function getVariantsForPricing(ids: number[]): Promise<VariantPrici
+     })
+     .from(variants)
+     .innerJoin(products, eq(products.id, variants.productId))
++    .innerJoin(collections, eq(collections.id, products.collectionId))
+     .where(inArray(variants.id, uniqueIds));
+ 
+   const productIds = Array.from(new Set(rows.map((r) => r.productId)));
+diff --git a/lib/db/schema/orders.ts b/lib/db/schema/orders.ts
+index 064503e..bf47ab0 100644
+--- a/lib/db/schema/orders.ts
++++ b/lib/db/schema/orders.ts
+@@ -39,6 +39,12 @@ export const orders = pgTable("orders", {
+   paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
+   subtotalPaise: integer("subtotal_paise").notNull(),
+   discountPaise: integer("discount_paise").notNull().default(0),
++  // Separate from discountPaise/couponCode on purpose: this is the automatic cross-pillar bundle
++  // discount (CLAUDE.md §7.2's 2026-09-10 amendment — "give masala equal importance"), never a
++  // manually-entered coupon. Kept as its own snapshot column so a historical order's invoice can
++  // always show "Bundle discount" as a distinct, honest line rather than folding it into a coupon
++  // total it has nothing to do with.
++  bundleDiscountPaise: integer("bundle_discount_paise").notNull().default(0),
+   shippingPaise: integer("shipping_paise").notNull().default(0),
+   totalPaise: integer("total_paise").notNull(),
+   couponCode: text("coupon_code"),
+diff --git a/lib/nav.ts b/lib/nav.ts
+index 84727fb..bb0e832 100644
+--- a/lib/nav.ts
++++ b/lib/nav.ts
+@@ -7,8 +7,12 @@ import type { CollectionSummary } from "@/types/catalog";
+  * navigation structure not read from the database; the ORDER within and across columns still comes
+  * entirely from `collections.priority` via the DB, never a literal number here.
+  */
+-const TEA_COLLECTION_SLUGS = new Set(["blue-tea", "red-tea", "classic-teas"]);
+-const MASALA_COLLECTION_SLUGS = new Set(["spices", "combos"]);
++// Exported (not just module-local) so the cross-pillar bundle-discount logic
++// (lib/commerce/pricing.ts) and the PDP's "try the other pillar" nudge can classify a collection
++// by slug the same way the nav does, instead of inventing a second list (CLAUDE.md §7.2's
++// 2026-09-10 amendment already established these as the two pillars).
++export const TEA_COLLECTION_SLUGS = new Set(["blue-tea", "red-tea", "classic-teas"]);
++export const MASALA_COLLECTION_SLUGS = new Set(["spices", "combos"]);
+ 
+ /** Collections that get the small Lemon Shift gradient tile in the mega-menu (CLAUDE.md §5.4:
+  * "Blue Tea and Red Tea collection tiles" — Classic & Assam does not). */
+diff --git a/lib/store/__tests__/cart.test.ts b/lib/store/__tests__/cart.test.ts
+index 010424d..bf21f6a 100644
+--- a/lib/store/__tests__/cart.test.ts
++++ b/lib/store/__tests__/cart.test.ts
+@@ -34,6 +34,7 @@ function pricingLine(overrides: Partial<PricingLine> = {}): PricingLine {
+     variantId: 1,
+     productId: 1,
+     collectionId: 1,
++    collectionSlug: "blue-tea",
+     priority: 1,
+     productName: "Blue Tea",
+     sku: "BT-500",
+@@ -54,6 +55,8 @@ function pricing(overrides: { lines?: PricingLine[]; issues?: PricingIssue[]; to
+     lines: overrides.lines ?? [],
+     subtotalPaise: paise(t.subtotal ?? 50000),
+     discountPaise: paise(t.discount ?? 0),
++    crossPillarDiscountPaise: paise(0),
++    crossPillarApplied: false,
+     shippingPaise: paise(t.shipping ?? 0),
+     totalPaise: paise(t.total ?? 50000),
+     savingsPaise: paise(t.savings ?? 10000),
+-- 
+2.43.0
+
